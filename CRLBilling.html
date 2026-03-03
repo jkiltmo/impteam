@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Combined — Sections 1-4</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* --- Global page / typography (match Child Part Tool) --- */
+    body {
+      font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1789e0;
+      color: #ffffff;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* --- Panels / Sections --- */
+    section {
+      background: rgba(255,255,255,0.03);
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+      border: 0;
+    }
+
+    /* --- Headings --- */
+    h1, h2, h3 {
+      color: #ffffff;
+      margin: 0 0 8px 0;
+    }
+
+    /* --- Copy --- */
+    p { margin: 0 0 10px 0; }
+
+    /* --- Form labels --- */
+    label {
+      display: block;
+      margin: 8px 0;
+      color: #ffffff;
+    }
+
+    /* --- Inputs --- */
+    input[type=file],
+    input[type=text] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #ffffff;
+      color: #111;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    /* --- Buttons --- */
+    button {
+      display: inline-block;
+      background: #f3f6fb;
+      color: #111;
+      padding: 10px 20px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+    button:hover { background: #e7ecf5; }
+    button[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* --- Layout helpers --- */
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .row > label { flex: 1 1 240px; }
+
+    /* --- Status / helper text --- */
+    .status {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.09);
+      color: #ffffff;
+    }
+    .small { font-size: 13px; color: rgba(255,255,255,0.9); }
+    .warning { color: #fff3cd; }
+
+    pre {
+      background: rgba(255,255,255,0.09);
+      padding: 10px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      color: #ffffff;
+    }
+
+    a { color: #eaf6ff; }
+
+    /* --- IMPORTANT: keep generated PDFs unchanged --- */
+    #s3_render {
+      background: #ffffff !important;
+      color: #111827 !important;
+    }
+    #s3_render * {
+      color: #111827 !important;
+      background: transparent;
+    }
+</style>
+
+  <!-- Shared libraries (load once) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- jsPDF-AutoTable for nice table rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+
+<!-- SECTION 1 -->
+<section id="section1">
+  <h1>Step 1 - Consolidated Billing</h1>
+  <p class="small">Upload the consolidated billing report, this file must have been converted to an .xlsx. Click Add Summary & Download and then move to Step 2.</p>
+  <label>Excel (.xlsx): <input id="s1_file" type="file" accept=".xlsx,.xls" /></label>
+  <div class="row"><button id="s1_go" disabled>Add Summary &amp; Download (auto-load to Section 2)</button></div>
+  <div id="s1_status" class="status"></div>
+
+  <script>
+(function(){
+  /* Utilities */
+  function normalizeHeader(s){ if (s==null) return ''; let t=String(s).replace(/\u00A0/g,' ').trim(); return t.replace(/\s+/g,' '); }
+  function normForCompare(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9#]/g,''); }
+  function findColIndex(headerRow,name){ if (!headerRow) return -1; for(let i=0;i<headerRow.length;i++) if (normalizeHeader(headerRow[i])===normalizeHeader(name)) return i; for(let i=0;i<headerRow.length;i++) if(String(headerRow[i]).toLowerCase()===String(name).toLowerCase()) return i; const target=normForCompare(name); for(let i=0;i<headerRow.length;i++){ const h=normForCompare(headerRow[i]); if (!h) continue; if (h===target||h.includes(target)||target.includes(h)) return i; } return -1; }
+  function findAnyHeader(headerRow,cands){ for(const c of cands){ const i=findColIndex(headerRow,c); if (i!==-1) return i } return -1 }
+  function parseNumeric(v){ if (v==null||v==='') return NaN; if (typeof v==='number') return v; let s=String(v).trim(); let neg=false; if (s.startsWith('(')&&s.endsWith(')')){ neg=true; s=s.slice(1,-1); } s=s.replace(/[^0-9.\-]/g,''); if (s===''||s==='.'||s==='-') return NaN; const n=parseFloat(s); return isNaN(n)?NaN:(neg?-n:n); }
+
+  const fileEl=document.getElementById('s1_file'), goBtn=document.getElementById('s1_go'), statusEl=document.getElementById('s1_status');
+  fileEl.addEventListener('change',()=>{ goBtn.disabled=!fileEl.files.length });
+
+  goBtn.addEventListener('click',async ()=>{
+    statusEl.textContent='Reading file...';
+    const f=fileEl.files[0]; if(!f){ statusEl.textContent='No file.'; return; }
+    try{
+      const data=await f.arrayBuffer();
+      const workbook=XLSX.read(data,{type:'array',cellDates:false,raw:false});
+      const ws=workbook.Sheets[workbook.SheetNames[0]];
+      if(!ws) throw new Error('Source worksheet not found.');
+      const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+      if(!aoa||aoa.length<1) throw new Error('Source sheet empty.');
+
+      const rawHeader=aoa[0].map(h=>h==null?'':String(h));
+
+      // Candidates
+      const masterInvCandidates=['MASTER INV NBR','MASTER INV','MASTER INVOICE NBR','MASTER INVOICE','MASTER INVOICE #','MASTER INVOICE NBR.','MASTER INV'];
+      const costCenterCandidates=['COST CENTER','COST_CENTER','COSTCENTER','COST CENTRE'];
+      const catalogCandidates=['CATALOG #','CATALOG','CATALOGNO','CATALOG#','CATALOG #'];
+      const unitCandidates=['UNIT','UNIT OF MEASURE','UOM','QTY'];
+      const totalCandidates=['TOTAL','EXT $','EXT','EXTENDED','LINE TOTAL','UNIT $','UNIT$'];
+      const poCandidates=['PO NBR','PO NBR.','PO NBR#','PO','PO#','PO NUMBER','PO NBR '];
+      const orderDateCandidates=['ORDER DATE','ORDERDATE','DATE'];
+      const fsCandidates=['FS #','FS#','FS NUMBER','FS NO'];
+
+      // Detect columns (prefer master invoice)
+      const masterInvIdx=findAnyHeader(rawHeader,masterInvCandidates);
+      const costCenterIdx=findAnyHeader(rawHeader,costCenterCandidates);
+      const groupByMaster = (masterInvIdx !== -1);
+      const groupingIdx = groupByMaster ? masterInvIdx : costCenterIdx;
+
+      // Other required columns
+      const catalogIdx=findAnyHeader(rawHeader,catalogCandidates);
+      const unitIdx=findAnyHeader(rawHeader,unitCandidates);
+      const totalIdx=findAnyHeader(rawHeader,totalCandidates);
+      const poIdx=findAnyHeader(rawHeader,poCandidates); // STRICT: no fallback
+      const orderDateIdx=findAnyHeader(rawHeader,orderDateCandidates);
+      const fsIdx=findAnyHeader(rawHeader,fsCandidates);
+
+      const missing=[];
+      if(catalogIdx===-1) missing.push('CATALOG #');
+      if(unitIdx===-1) missing.push('UNIT / QTY');
+      if(totalIdx===-1) missing.push('TOTAL');
+      if(poIdx===-1) missing.push('PO / PO NBR'); // strict requirement
+      if(orderDateIdx===-1) missing.push('ORDER DATE');
+      if(fsIdx===-1) missing.push('FS #');
+      if(groupingIdx===-1) missing.push('MASTER INV NBR or COST CENTER');
+
+      if(missing.length){ statusEl.innerHTML='Missing required column(s): '+missing.join(', '); return; }
+
+      // Maps and ordering
+      const transportTotals=new Map(), allTotals=new Map(), masterValByGroup=new Map(), poByGroup=new Map(), groupOrder=[];
+      const seen=new Set();
+      let skipped=0;
+
+      for(let r=1;r<aoa.length;r++){
+        const row=aoa[r].slice();
+        while(row.length<rawHeader.length) row.push(null);
+        const poVal=row[poIdx], orderDateVal=row[orderDateIdx], fsVal=row[fsIdx];
+        if(poVal==null||String(poVal).trim()==''||orderDateVal==null||String(orderDateVal).trim()==''||fsVal==null||String(fsVal).trim()==''){ skipped++; continue; }
+
+        // grouping key (either master inv or cost center)
+        let grp = row[groupingIdx];
+        grp = (grp==null||String(grp).trim()=='')?'UNSPECIFIED':String(grp).trim();
+
+        if(!seen.has(grp)){
+          seen.add(grp); groupOrder.push(grp);
+          // original file used first column (col A) for master inv nro; keep that value to populate MASTER INV NBR column when grouping by cost center
+          const colA = row[0];
+          masterValByGroup.set(grp,(colA!=null&&String(colA).trim()!=='')?String(colA).trim():'');
+          // STRICT: read PO from detected PO column only
+          const poCell = row[poIdx];
+          poByGroup.set(grp,(poCell!=null&&String(poCell).trim()!=='')?String(poCell).trim():'');
+        }
+
+        const totalVal=parseNumeric(row[totalIdx]);
+        if(!isNaN(totalVal)) allTotals.set(grp,(allTotals.get(grp)||0)+totalVal);
+
+        const catalogBlank=(row[catalogIdx]==null||String(row[catalogIdx]).trim()==='');
+        const unitVal=row[unitIdx];
+        const unitEA=(unitVal!=null&&String(unitVal).trim().toUpperCase()==='EA');
+        if(catalogBlank && unitEA && !isNaN(totalVal)) transportTotals.set(grp,(transportTotals.get(grp)||0)+totalVal);
+      }
+
+      // Build summary array depending on grouping
+      let summary;
+      if(groupByMaster){
+        // Grouping key is MASTER INV NBR
+        summary=[['MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','GRAND_TOTAL']];
+        for(const grp of groupOrder){
+          const transport=+(transportTotals.get(grp)||0).toFixed(2);
+          const all=+(allTotals.get(grp)||0).toFixed(2);
+          const merch=+(all-transport).toFixed(2);
+          summary.push([grp, poByGroup.get(grp)||'', transport, merch, +(transport+merch).toFixed(2)]);
+        }
+      }else{
+        // Grouping key is COST CENTER (preserve original layout)
+        summary=[['COST CENTER','MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','GRAND_TOTAL']];
+        for(const grp of groupOrder){
+          const transport=+(transportTotals.get(grp)||0).toFixed(2);
+          const all=+(allTotals.get(grp)||0).toFixed(2);
+          const merch=+(all-transport).toFixed(2);
+          summary.push([grp, masterValByGroup.get(grp)||'', poByGroup.get(grp)||'', transport, merch, +(transport+merch).toFixed(2)]);
+        }
+      }
+
+      const summaryName='Transportation Summary';
+      const exIdx=workbook.SheetNames.indexOf(summaryName);
+      if(exIdx!==-1){ delete workbook.Sheets[summaryName]; workbook.SheetNames.splice(exIdx,1); }
+      const wsSummary=XLSX.utils.aoa_to_sheet(summary);
+      XLSX.utils.book_append_sheet(workbook, wsSummary, summaryName);
+      const base = (f.name && f.name.toLowerCase().endsWith('.xlsx'))?f.name.replace(/\.xlsx$/i,''):(f.name||'workbook');
+      const outName = base + ' - with Transportation Summary.xlsx';
+      const wbout = XLSX.write(workbook,{bookType:'xlsx',type:'array'});
+      const blob = new Blob([wbout],{type:'application/octet-stream'});
+
+      // Download
+      const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=outName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+
+      // Auto-hand off into Section 2's input (best-effort)
+      try{
+        const fileForPdf = new File([blob], outName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const dt = new DataTransfer(); dt.items.add(fileForPdf);
+        const target = document.getElementById('s2_xlsx');
+        if(target){ target.files = dt.files; target.dispatchEvent(new Event('change',{bubbles:true})); const s2st = document.getElementById('s2_status'); if(s2st) s2st.textContent = `Loaded "${outName}" from Section 1.`; target.scrollIntoView({behavior:'smooth',block:'center'}); }
+      }catch(e){
+        console.warn('handoff failed',e);
+        const s2st = document.getElementById('s2_status'); if(s2st) s2st.textContent='Auto-load failed — file downloaded to your machine.';
+      }
+
+      statusEl.textContent = 'Done — downloaded: ' + outName + (skipped?(' (skipped '+skipped+' invalid rows)'):'');
+
+    }catch(err){ console.error(err); statusEl.textContent='Error: '+(err&&err.message?err.message:String(err)); }
+  });
+})();
+</script>
+</section>
+
+<!-- SECTION 2 -->
+<section id="section2">
+  <h2>Step 2 - PDF Coverpage Generator</h2>
+  <p class="small"> The Excel field should autopopulate with the file from above, in the PDF Template, select the Coverpage File. In the Start Date and Invoice Date fields, enter the date range that the invoices cover. Click Fill PDF(s) & Download and move to step 3.</p>
+  <label>Excel (.xlsx): <input id="s2_xlsx" type="file" accept=".xlsx,.xls" /></label>
+  <label>PDF template (.pdf): <input id="s2_pdf" type="file" accept=".pdf" /></label>
+  <div class="row">
+    <label>Start Date: <input id="s2_start" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" /></label>
+    <label>Invoice Date: <input id="s2_invoiceDate" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" /></label>
+  </div>
+  <div class="row" style="margin-top:10px"><button id="s2_fill" disabled>Fill PDF(s) &amp; Download</button></div>
+  <div id="s2_status" class="status"></div>
+
+  <script>
+(async function(){
+  // Elements (IDs must match your page)
+  const xlsxEl = document.getElementById('s2_xlsx');
+  const pdfEl   = document.getElementById('s2_pdf');
+  const btn     = document.getElementById('s2_fill');
+  const status  = document.getElementById('s2_status');
+  const startEl = document.getElementById('s2_start');        // optional
+  const invoiceEl = document.getElementById('s2_invoiceDate'); // optional
+
+  // enable/disable button
+  function enable(){ btn.disabled = !(xlsxEl.files.length && pdfEl.files.length); }
+  xlsxEl.addEventListener('change', enable);
+  pdfEl.addEventListener('change', enable);
+
+  // Utilities
+  function normalizeHeader(s){ return (s==null?'':String(s)).replace(/\u00A0/g,' ').trim().replace(/\s+/g,' ').toUpperCase(); }
+  function fmtNumber(v){ 
+    const n = Number(String(v).toString().replace(/[^0-9.\-]/g,'')); 
+    if(isNaN(n)) return '0.00'; 
+    return n.toFixed(2); 
+  }
+  function safeName(v){ return String(v||'').trim().replace(/[^\w\-]/g,'_') || 'UNKNOWN'; }
+
+  async function readSheet(file, desired='Transportation Summary'){
+    const data = await file.arrayBuffer();
+    const wb = XLSX.read(data,{type:'array',cellDates:true,raw:false});
+    let sheetName = desired;
+    if(!wb.SheetNames.includes(desired)) sheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+    const aoa = XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+    if(!aoa || aoa.length < 2) throw new Error('Transportation Summary sheet must have a header row and at least one data row.');
+    const header = aoa[0].map(h => (h==null||h===undefined)?'':String(h));
+    const rows = aoa.slice(1).map(r => r.map(c => (c==null||c===undefined)?'':c));
+    return { header, rows, sheetName };
+  }
+
+  // Find header index exactly by a list of candidate names (normalized)
+  function findHeaderIndex(headerRow, candidates){
+    for(const c of candidates){
+      const target = normalizeHeader(c);
+      for(let i=0;i<headerRow.length;i++){
+        if(normalizeHeader(headerRow[i]) === target) return i;
+      }
+    }
+    return -1;
+  }
+
+  // Find PDF form field by exact name or close case-insensitive match
+  function findPdfField(fields, name){
+    if(!name) return null;
+    // exact name first
+    for(const f of fields){
+      try{ if(f.getName && f.getName() === name) return f; }catch(e){}
+    }
+    const low = name.toLowerCase();
+    for(const f of fields){
+      try{
+        const n = String(f.getName && f.getName() || '');
+        if(n.toLowerCase() === low) return f;
+      }catch(e){}
+    }
+    // fallback: contains
+    for(const f of fields){
+      try{
+        const n = String(f.getName && f.getName() || '');
+        if(n.toLowerCase().includes(low) || low.includes(n.toLowerCase())) return f;
+      }catch(e){}
+    }
+    return null;
+  }
+
+  function setFieldText(field, value){
+    if(!field) return false;
+    try{
+      // prefer setText if available
+      if(typeof field.setText === 'function'){ field.setText(String(value)); return true; }
+      if(typeof field.setValue === 'function'){ field.setValue(String(value)); return true; }
+      // last resort: set as text annotation if exposed (not common)
+      return false;
+    }catch(e){
+      return false;
+    }
+  }
+
+  // The exact mapping the user requested (header -> pdf field name(s) to try)
+  const mapping = [
+    { headerCandidates: ['MASTER INV NBR','MASTER INV','MASTER INVOICE','MASTER INVOICE NBR'], pdfNames: ['Invoice#','INVOICE#','INVOICE_NUMBER'] },
+    { headerCandidates: ['PO NBR','PO','PO#','PO NBR.','PO NUMBER','PURCHASE ORDER','PURCHASEORDER','PO NBR '], pdfNames: ['PURCHASEORDER#','PURCHASE ORDER #','PurchaseOrder#','PURCHASE_ORDER','#PO'] },
+    { headerCandidates: ['TRANSPORTATION_SUBTOTAL','TRANSPORTATION SUBTOTAL','TRANS TOTAL','TRANSTOTAL','TRANSTOTAL$','TRANS TOTAL $'], pdfNames: ['TRANSTOTAL$','TransTotal$','TRANS_TOTAL','TRANSTOTAL'] },
+    { headerCandidates: ['MERCHANDISE_SUBTOTAL','MERCHANDISE SUBTOTAL','MERCH TOTAL','MERCHTOTAL','MERCH TOTAL $'], pdfNames: ['MERCHTOTAL$','MerchTotal$','MERCH_TOTAL','MERCHTOTAL'] },
+    { headerCandidates: ['GRAND_TOTAL','GRAND TOTAL','GRANDTOTAL','GRAND TOTAL $'], pdfNames: ['GRANDTOTAL$','GrandTotal$','GRANDTOTAL','GRAND TOTAL'] }
+  ];
+
+  btn.addEventListener('click', async ()=>{
+    status.textContent = 'Reading Transportation Summary and PDF...';
+    try{
+      // read XLSX sheet
+      const { header, rows, sheetName } = await readSheet(xlsxEl.files[0], 'Transportation Summary');
+
+      // detect column indices for required headers
+      const indices = {};
+      const missingHeaders = [];
+      for(const m of mapping){
+        const idx = findHeaderIndex(header, m.headerCandidates);
+        if(idx === -1){
+          missingHeaders.push(m.headerCandidates[0]);
+        } else {
+          indices[m.headerCandidates[0]] = idx;
+        }
+      }
+      if(missingHeaders.length){
+        status.textContent = 'Missing Transportation Summary column(s): ' + missingHeaders.join(', ');
+        return;
+      }
+
+      // Load PDF bytes once
+      const pdfBytes = await pdfEl.files[0].arrayBuffer();
+
+      // We'll collect any mapping mismatches for debugging
+      const mappingProblems = [];
+
+      // Build an array of field name pairs to set: for each row, create a mapping from pdfField -> value
+      const JSZipLib = JSZip; // ensure JSZip variable exists in global scope
+      const zip = new JSZipLib();
+
+      for(let r = 0; r < rows.length; r++){
+        const row = rows[r];
+
+        // read values by detected indices (use first candidate key as map key)
+        const masterVal = row[ indices[mapping[0].headerCandidates[0]] ] || '';
+        const poVal     = row[ indices[mapping[1].headerCandidates[0]] ] || '';
+        const transVal  = row[ indices[mapping[2].headerCandidates[0]] ] || 0;
+        const merchVal  = row[ indices[mapping[3].headerCandidates[0]] ] || 0;
+        const grandVal  = row[ indices[mapping[4].headerCandidates[0]] ] || 0;
+
+        // load pdf and fill
+        const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
+        const form = pdfDoc.getForm();
+        const fields = form.getFields();
+
+        // For each mapping, attempt to find the PDF field(s) listed and set the value
+        // 1) MASTER INV NBR -> Invoice#
+        const fMaster = mapping[0].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fMaster) mappingProblems.push(`PDF field for Invoice# not found (tried: ${mapping[0].pdfNames.join(', ')})`);
+        setFieldText(fMaster, masterVal);
+
+        // 2) PO NBR -> PURCHASEORDER#
+        const fPo = mapping[1].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fPo) mappingProblems.push(`PDF field for PURCHASEORDER# not found (tried: ${mapping[1].pdfNames.join(', ')})`);
+        setFieldText(fPo, poVal);
+
+        // 3) TRANSPORTATION_SUBTOTAL -> TRANSTOTAL$
+        const fTrans = mapping[2].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fTrans) mappingProblems.push(`PDF field for TRANSTOTAL$ not found (tried: ${mapping[2].pdfNames.join(', ')})`);
+        setFieldText(fTrans, fmtNumber(transVal));
+
+        // 4) MERCHANDISE_SUBTOTAL -> MERCHTOTAL$
+        const fMerch = mapping[3].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fMerch) mappingProblems.push(`PDF field for MERCHTOTAL$ not found (tried: ${mapping[3].pdfNames.join(', ')})`);
+        setFieldText(fMerch, fmtNumber(merchVal));
+
+        // 5) GRAND_TOTAL -> GRANDTOTAL$
+        const fGrand = mapping[4].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fGrand) mappingProblems.push(`PDF field for GRANDTOTAL$ not found (tried: ${mapping[4].pdfNames.join(', ')})`);
+        setFieldText(fGrand, fmtNumber(grandVal));
+
+        // Optional: set start/invoice date fields if provided
+        if(startEl && startEl.value) {
+          const fStart = findPdfField(fields, 'START DATE') || findPdfField(fields, 'STARTDATE');
+          if(fStart) setFieldText(fStart, startEl.value);
+        }
+        if(invoiceEl && invoiceEl.value){
+          const fInvDate = findPdfField(fields, 'INVOICE DATE') || findPdfField(fields, 'INVOICEDATE');
+          if(fInvDate) setFieldText(fInvDate, invoiceEl.value);
+        }
+
+        // Save file, name using master + po for readability
+        const safeMaster = safeName(masterVal);
+        const safePo = safeName(poVal);
+        const fileName = `Invoice_${safeMaster}_${safePo || 'NOPONBR'}.pdf`;
+        const outBytes = await pdfDoc.save();
+        zip.file(fileName, outBytes);
+      } // end rows loop
+
+      // Report mapping problems if any (but still proceed)
+      if(mappingProblems.length){
+        status.textContent = 'Completed with mapping warnings: ' + mappingProblems.join(' ; ');
+      } else {
+        status.textContent = `Completed — ${rows.length} PDFs generated.`;
+      }
+
+      // Bundle into zip and trigger download
+      status.textContent += ' Packaging ZIP...';
+      const bundle = await zip.generateAsync({type:'blob'});
+      const url = URL.createObjectURL(bundle);
+      const a = document.createElement('a'); a.href = url; a.download = 'filled_invoices.zip'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      status.textContent = 'Done — ZIP downloaded.';
+    }catch(err){
+      console.error(err);
+      status.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+    }
+  });
+
+})();
+</script>
+</section>
+
+<!-- SECTION 3 -->
+<section id="section3">
+  <h3>Step 3 - Consolidated Billing PDFs</h3>
+  <p class="small">Upload the same consolidated billing report from Step 1. Click Detect groups & create ZIP. This step takes time. Once complete move to step 4.</p>
+  <label>Excel (.xlsx): <input id="s3_file" type="file" accept=".xlsx,.xls" /></label>
+  <div class="row"><button id="s3_go" disabled>Detect groups &amp; create ZIP</button></div>
+  <div id="s3_status" class="status small"></div>
+  <div id="s3_progress" class="small"></div>
+  <div id="s3_render" style="position:fixed;left:-9999px;top:-9999px;width:1500px" aria-hidden="true"></div>
+
+  <!-- Section 3: styled jsPDF + AutoTable rendering that preserves exact text -->
+  <script>
+(function(){
+  const fileEl=document.getElementById('s3_file'), btn=document.getElementById('s3_go'), status=document.getElementById('s3_status'), progress=document.getElementById('s3_progress');
+  fileEl.addEventListener('change',()=>{ btn.disabled = !fileEl.files.length; status.textContent=''; progress.textContent=''; });
+
+  function isBlank(cell){ if(!cell) return true; const v=(cell.v===undefined||cell.v===null)?'':String(cell.v).trim(); return v==='' }
+  function cellBold(cell){ if(!cell||!cell.s) return false; try{ const f=cell.s.font||{}; if(f.bold===true) return true; if(f.fontWeight && (String(f.fontWeight).toLowerCase()==='bold' || parseInt(f.fontWeight,10)>=700)) return true; return false }catch{return false} }
+  function parseNumeric(v){ if(v==null||v==='') return NaN; if(typeof v==='number') return v; let s=String(v).trim(); let neg=false; if(s.startsWith('(')&&s.endsWith(')')){neg=true;s=s.slice(1,-1)} s=s.replace(/[^0-9.\-]/g,''); if(s===''||s==='.'||s==='-') return NaN; const n=parseFloat(s); return isNaN(n)?NaN:(neg?-n:n); }
+  function toCents(v){ const n=parseNumeric(v); if(!isFinite(n)||isNaN(n)) return null; return Math.round(n*100) }
+  function centsToStr(c){ return (c/100).toFixed(2) }
+  function sanitize(s){ if(s==null) return ''; let t=String(s); t=t.normalize('NFKD').replace(/[\u0300-\u036f]/g,''); t=t.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-\.]/g,'_').replace(/_+/g,'_'); return t.slice(0,80)||'' }
+
+  // Create styled PDF using jsPDF + AutoTable while preserving exact cell text
+  async function createStyledPdf(header, rows, opts = {}){
+    const { orientation = 'landscape', paper = 'letter', marginPt = 18, baseFontSize = 10, minFontSize = 6 } = opts;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation, unit: 'pt', format: paper });
+    doc.setFont('helvetica');
+
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    const left = marginPt;
+    const right = pw - marginPt;
+    const usableW = right - left;
+
+    const numCols = header.length;
+
+    // detect numeric columns visually (for right-align only, not to change content)
+    const numericCol = new Array(numCols).fill(false);
+    for (let c = 0; c < numCols; c++){
+      let numericCount = 0, totalCount = 0;
+      for (let r = 0; r < Math.min(rows.length, 80); r++){
+        const v = rows[r][c];
+        if (v === undefined || v === null || String(v).trim() === '') continue;
+        totalCount++;
+        if (!isNaN(parseNumeric(v))) numericCount++;
+      }
+      if (totalCount > 0 && (numericCount / totalCount) >= 0.6) numericCol[c] = true;
+      const h = String(header[c]||'').toLowerCase();
+      if (h.includes('total')||h.includes('ext')||h.includes('amount')||h.includes('$')||h.includes('grand')) numericCol[c] = true;
+    }
+
+    // measure natural widths using jsPDF at baseFontSize
+    doc.setFontSize(baseFontSize);
+    function measure(txt){ try { return doc.getTextWidth(String(txt)); } catch(e){ return String(txt).length * (baseFontSize * 0.5); } }
+    const maxWidths = new Array(numCols).fill(0);
+    for (let c = 0; c < numCols; c++){ maxWidths[c] = Math.max(maxWidths[c], measure(header[c]||'')); }
+    for (let r = 0; r < Math.min(rows.length, 400); r++){
+      for (let c = 0; c < numCols; c++){
+        const cell = rows[r][c] !== undefined && rows[r][c] !== null ? String(rows[r][c]) : '';
+        maxWidths[c] = Math.max(maxWidths[c], measure(cell));
+      }
+    }
+
+    const colPadding = 12; // slightly larger padding for nicer visual spacing
+    const paddedWidths = maxWidths.map(w => Math.max(30, w + colPadding));
+    const totalNatural = paddedWidths.reduce((a,b)=>a+b,0) || 1;
+    // compute horizontal scale to fit usableW
+    const hScale = Math.min(1, usableW / totalNatural);
+    // compute font size (scale down if needed)
+    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * hScale));
+
+    // compute final column widths
+    let colWidths = paddedWidths.map(w => Math.floor(w * hScale));
+    // distribute leftover pixels
+    let assigned = colWidths.reduce((a,b)=>a+b,0);
+    let leftover = Math.round(usableW - assigned);
+    let ci = 0;
+    while (leftover > 0){
+      colWidths[ci % numCols] += 1;
+      leftover--;
+      ci++;
+    }
+
+    // Build AutoTable columns and body: AutoTable accepts head as array and body as array of arrays
+    const head = [ header.map(h => String(h||'')) ];
+    const body = rows.map(r => r.map(c => c===undefined||c===null? '': String(c)) );
+
+    // Build columnStyles object for autoTable (set widths and alignment)
+    const columnStyles = {};
+    for (let i = 0; i < numCols; i++){
+      columnStyles[i] = {
+        cellWidth: colWidths[i],
+        halign: numericCol[i] ? 'right' : 'left',
+        valign: 'middle'
+      };
+    }
+
+    // autoTable options: theme grid, header style, zebra, font size & padding
+    doc.autoTable({
+      head,
+      body,
+      startY: marginPt,
+      margin: { left: left, right: marginPt },
+      styles: {
+        font: 'helvetica',
+        fontSize: fontSize,
+        cellPadding: 4,
+        overflow: 'linebreak',
+        valign: 'middle'
+      },
+      headStyles: {
+        fillColor: [245,245,245],
+        textColor: 20,
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      alternateRowStyles: {
+        fillColor: [250,250,250]
+      },
+      theme: 'grid',
+      columnStyles,
+      tableWidth: 'auto',
+      showHead: 'everyPage',
+      didDrawPage: function (data) {
+        // nothing extra; header is handled by autoTable
+      }
+    });
+
+    const pdfBytes = doc.output('arraybuffer');
+    return new Blob([pdfBytes], { type: 'application/pdf' });
+  }
+
+  // grouping logic unchanged (keeps original detection behavior)
+  function detectMoneyCols(header, aoa, sample=30){
+    const lower = header.map(h=>String(h||'').toLowerCase());
+    const keywords=['total','ext','amount','unit $','unit$','$','tax','line total'];
+    const money=new Set();
+    for(let i=0;i<header.length;i++){ const h=lower[i]||''; for(const kw of keywords) if(h.includes(kw)){ money.add(i); break; } }
+    if(money.size===0){
+      const rows = Math.min(sample, Math.max(0, aoa.length-1));
+      for(let c=0;c<header.length;c++){
+        let num=0, tot=0;
+        for(let r=1;r<=rows;r++){ const v=(aoa[r]&&aoa[r][c]!==undefined)?aoa[r][c]:''; if(v===''||v==null) continue; tot++; const n=parseNumeric(v); if(!isNaN(n)) num++; }
+        if(tot>0 && (num/tot)>=0.6) money.add(c);
+      }
+    }
+    return money;
+  }
+
+  function findHeaderIndex(headerLower, cands){ for(const c of cands){ const lc=c.toLowerCase(); const idx = headerLower.findIndex(h => h===lc || (h && h.includes(lc))); if(idx!==-1) return idx; } return -1; }
+
+  btn.addEventListener('click', async ()=>{
+    status.textContent='Reading workbook...'; progress.textContent='';
+    const f=fileEl.files[0]; if(!f){ status.textContent='No file.'; return; }
+    try{
+      const ab = await f.arrayBuffer();
+      // read with raw:false so we get formatted text strings where possible
+      const wb = XLSX.read(ab, { type:'array', cellStyles:true, raw:false });
+      const sheet = wb.Sheets[wb.SheetNames[0]]; if(!sheet) throw new Error('Sheet missing');
+      const aoa = XLSX.utils.sheet_to_json(sheet,{header:1,defval:'', raw:false}); if(!aoa||aoa.length===0){ status.textContent='Sheet empty'; return; }
+      const header = aoa[0].map(c=>c==null?'':String(c));
+      let lastRow = aoa.length;
+      if(sheet['!ref']) try{ const rng = XLSX.utils.decode_range(sheet['!ref']); lastRow = rng.e.r + 1; }catch(e){}
+      const boundaries=[]; let sawStyle=false;
+      for(let r=2;r<=lastRow;r++){
+        const Ac = sheet['A'+r], Bc = sheet['B'+r], Cc = sheet['C'+r], Dc = sheet['D'+r], Ec = sheet['E'+r];
+        const bBlank = isBlank(Bc), cBlank=isBlank(Cc), dBlank = isBlank(Dc), eBlank=isBlank(Ec);
+        const boldA = cellBold(Ac); if(boldA) sawStyle=true;
+        const aHas = !isBlank(Ac);
+        let isBoundary=false;
+        if(boldA && bBlank && cBlank && dBlank && eBlank) isBoundary=true;
+        else if(!sawStyle && aHas && bBlank && cBlank && dBlank && eBlank) isBoundary=true;
+        if(isBoundary) boundaries.push(r);
+      }
+
+      let groups=[];
+      if(boundaries.length>0){ let start=2; for(const br of boundaries){ const end=br; if(start<=end) groups.push({from:start,to:end}); start=end+1; } if(start<=lastRow) groups.push({from:start,to:lastRow}); }
+      else { const starts=[]; for(let r=2;r<=lastRow;r++) if(!isBlank(sheet['A'+r])) starts.push(r); if(starts.length===0){ if(lastRow>=2) groups.push({from:2,to:lastRow}); } else { for(let i=0;i<starts.length;i++){ const s=starts[i]; const e=(i+1<starts.length)?starts[i+1]-1:lastRow; groups.push({from:s,to:e}); } } }
+
+      if(groups.length===0){ status.textContent='No groups found'; return; }
+      status.textContent = sawStyle?`Detected ${groups.length} groups (bold-A rule)`:`Detected ${groups.length} groups (content fallback)`;
+
+      const moneyCols = detectMoneyCols(header, aoa);
+      const headerLower = header.map(h=>String(h||'').toLowerCase());
+      const costCenterIdx = findHeaderIndex(headerLower, ['cost center','cost_center','costcenter']);
+      const totalIdx = findHeaderIndex(headerLower, ['ext $','ext','total','line total','amount','unit $','unit$']);
+      const masterIdx = findHeaderIndex(headerLower, ['master inv nbr','master inv number','master inv','master_inv_nbr','masterinvoice','master invoice','master']);
+
+      const allTotals = new Map(), transportTotals = new Map();
+      for(let r=2;r<=lastRow;r++){
+        const row = aoa[r-1]||[]; const cc=(costCenterIdx>=0)?(row[costCenterIdx]||'UNSPECIFIED'):'UNSPECIFIED'; const ccKey=String(cc).trim()||'UNSPECIFIED';
+        let totalC = null;
+        if(totalIdx>=0) totalC = toCents(row[totalIdx]);
+        else { for(const mi of moneyCols){ const cval=toCents(row[mi]); if(cval!==null){ totalC=cval; break; } } }
+        if(totalC !== null) allTotals.set(ccKey,(allTotals.get(ccKey)||0)+totalC);
+        const catalogVal = row[0]; const unitVal = row[2]!==undefined?String(row[2]).trim():''; const catalogBlank = (catalogVal==null||String(catalogVal).trim()===''); const unitEA = unitVal.toUpperCase()==='EA';
+        if(catalogBlank && unitEA){
+          let transportC = totalC;
+          if(transportC===null){ for(const mi of moneyCols){ const cval=toCents(row[mi]); if(cval!==null){ transportC=cval; break; } } }
+          if(transportC!==null) transportTotals.set(ccKey,(transportTotals.get(ccKey)||0)+transportC);
+        }
+      }
+
+      const zip = new JSZip();
+      for(let gi=0;gi<groups.length;gi++){
+        const g=groups[gi];
+        progress.textContent = `Rendering ${gi+1}/${groups.length} — rows ${g.from}-${g.to}...`;
+        const firstRow = aoa[g.from-1]||[];
+        let masterVal = ''; if(masterIdx>=0) masterVal = firstRow[masterIdx]; if(!masterVal) masterVal = firstRow[0];
+        let safeMaster = sanitize(masterVal||''); if(!safeMaster) safeMaster = `rows_${g.from}-${g.to}`;
+        let costCenterVal = 'UNSPECIFIED'; if(costCenterIdx>=0){ const v = firstRow[costCenterIdx]; if(v) costCenterVal=v; }
+        let safeCC = sanitize(costCenterVal||''); if(!safeCC) safeCC='UNSPECIFIED';
+
+        // Build rows array for PDF preserving formatted strings exactly (sheet_to_json used raw:false above)
+        const rowsForPdf = [];
+        for(let r=g.from;r<=g.to;r++){
+          const row = aoa[r-1]||[];
+          const out = [];
+          for(let c=0;c<header.length;c++){
+            const raw = row[c];
+            out.push(raw===undefined||raw===null?'':String(raw));
+          }
+          rowsForPdf.push(out);
+        }
+
+        // create styled PDF that fits columns to page width
+        try{
+          const pdfBlob = await createStyledPdf(header.map(h=>h||''), rowsForPdf, { orientation:'landscape', paper:'letter', marginPt:18, baseFontSize:10, minFontSize:6 });
+          const fname = `RGNBillingRpt_${safeMaster}_${safeCC}.pdf`;
+          zip.file(fname, pdfBlob);
+        }catch(e){ console.error('PDF error',e); }
+        progress.textContent = `Rendered ${gi+1}/${groups.length}.`;
+      }
+
+      // Build manifest and ZIP
+      const manifest = ['Generated by Billing PDF tool','']; manifest.push('Totals by Cost Center (USD):');
+      for(const [cc,cents] of allTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
+      manifest.push(''); manifest.push('Transport totals:');
+      for(const [cc,cents] of transportTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
+      zip.file('MANIFEST.txt', manifest.join('\n'));
+
+      progress.textContent='Creating ZIP...';
+      const zipBlob = await zip.generateAsync({type:'blob'}, meta => { progress.textContent = `Zipping: ${Math.round(meta.percent)}%`; });
+      const n = (fileEl.files[0]&&fileEl.files[0].name&&fileEl.files[0].name.toLowerCase().endsWith('.xlsx'))?fileEl.files[0].name.replace(/\.xlsx$/i,''):'RGNBilling';
+      const zipName = `${n}_group_pdfs_vector.zip`;
+      const url = URL.createObjectURL(zipBlob); const a=document.createElement('a'); a.href=url; a.download=zipName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      status.textContent = `Done — downloaded ${zipName}.`; progress.textContent='';
+    }catch(err){ console.error(err); status.textContent='Error: '+(err&&err.message?err.message:String(err)); progress.textContent=''; }
+  });
+})();
+  </script>
+</section>
+
+<!-- SECTION 4 -->
+<section id="section4">
+  <h3>Step 4 - PDF Merging</h3>
+  <p class="small">Select both zip files created from steps 2 and 3, then click Create Consolidated ZIP.</p>
+  <div class="row">
+    <input id="s4_files" type="file" accept=".pdf,.zip" multiple />
+    <button id="s4_go" disabled>Create Consolidated ZIP</button>
+  </div>
+  <div style="margin-top:8px;width:100%;background:#eee;border-radius:8px;overflow:hidden;height:18px"><div id="s4_bar" style="height:100%;width:0%;background:linear-gradient(90deg,#1976d2,#0d47a1);transition:width 150ms linear"></div></div>
+  <div id="s4_status" class="status">No files loaded.</div>
+
+  <script>
+  (function(){
+    const input=document.getElementById('s4_files'), go=document.getElementById('s4_go'), bar=document.getElementById('s4_bar'), status=document.getElementById('s4_status');
+    let entries=[], groups={};
+    function setProgress(p){ bar.style.width = Math.max(0,Math.min(100,p)) + '%'; }
+
+    function extractCore(fn){ const base = fn.replace(/^.*[\\/]/,'').replace(/\.[^.]+$/,''); const m = base.match(/^[^_]+_([^_]+)_/); return m?m[1]:null; }
+    function normalize(fn){ return fn.toLowerCase().replace(/\.[^.]+$/,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+    function fuzzyMatch(a,b){ const na=normalize(a), nb=normalize(b); return na===nb||na.includes(nb)||nb.includes(na); }
+    function filenamesMatch(a,b){ const ca=extractCore(a), cb=extractCore(b); if(ca&&cb) return ca.toLowerCase()===cb.toLowerCase(); return fuzzyMatch(a,b); }
+
+    function groupList(list){
+      const reps=[]; const grouped=[];
+      for(const e of list){
+        let idx=-1;
+        for(let i=0;i<reps.length;i++){ if(filenamesMatch(reps[i], e.filename)){ idx=i; break; } }
+        if(idx===-1){ reps.push(e.filename); grouped.push([e]); } else grouped[idx].push(e);
+      }
+      const out={};
+      for(let i=0;i<grouped.length;i++){
+        const core = extractCore(reps[i]);
+        const key = (core||normalize(reps[i])).replace(/[^A-Za-z0-9_]/g,'');
+        out[key] = grouped[i];
+      }
+      return out;
+    }
+
+    input.addEventListener('change', async (e)=>{
+      entries=[]; groups={}; go.disabled=true; setProgress(0); status.textContent='Reading files...';
+      const files = Array.from(e.target.files||[]);
+      for(const f of files){
+        if(/\.zip$/i.test(f.name)){
+          const z = await JSZip.loadAsync(await f.arrayBuffer());
+          for(const k of Object.keys(z.files)){
+            const zf = z.files[k];
+            if(!zf.dir && /\.pdf$/i.test(zf.name)){
+              entries.push({ filename: zf.name.split('/').pop(), zipName: f.name, arrayBuffer: await zf.async('arraybuffer') });
+            }
+          }
+        } else if(/\.pdf$/i.test(f.name)){
+          entries.push({ filename: f.name, zipName:'', arrayBuffer: await f.arrayBuffer() });
+        }
+      }
+      if(!entries.length){ status.textContent='No PDFs found.'; return; }
+      groups = groupList(entries);
+      status.textContent = `Ready — ${Object.keys(groups).length} group(s) detected.`;
+      setProgress(15); go.disabled=false;
+    });
+
+    go.addEventListener('click', async ()=>{
+      go.disabled=true; input.disabled=true; setProgress(20); status.textContent='Merging PDFs...';
+      const zip = new JSZip(); const keys = Object.keys(groups).sort(); let step=0;
+      for(const key of keys){
+        const docs = groups[key].slice().sort((a,b)=> (/filled_invoices/i.test(a.zipName)?0:1) - (/filled_invoices/i.test(b.zipName)?0:1) );
+        const merged = await PDFLib.PDFDocument.create();
+        for(const d of docs){
+          const src = await PDFLib.PDFDocument.load(d.arrayBuffer);
+          const pages = await merged.copyPages(src, src.getPageIndices());
+          pages.forEach(p=>merged.addPage(p));
+        }
+        const mergedBytes = await merged.save();
+        zip.file(`Invoice_${key}.pdf`, mergedBytes);
+        step++; setProgress(20 + Math.round((step/keys.length)*50));
+      }
+      status.textContent='Creating ZIP...';
+      const blob = await zip.generateAsync({type:'blob'}, m => setProgress(70 + Math.round(m.percent*0.3)));
+      const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='Consolidated_Billing_PDFs.zip'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      setProgress(100); status.textContent='Done.'; input.disabled=false; go.disabled=false;
+    });
+  })();
+  </script>
+</section>
+
+</body>
+</html>

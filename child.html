@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Parent Child Reference Tool</title>
+
+  <!-- Use xlsx-js-style (supports cell styling in exports) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.min.js"></script>
+
+  <style>
+    /* --- Global page / typography --- */
+    body {
+      font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1789e0; /* matched to Sign Tool Final */
+      color: #ffffff;     /* primary text color */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* --- Panels / Sections --- */
+    .section {
+      background: rgba(255,255,255,0.03); /* translucent white overlay */
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+
+    /* --- Headings --- */
+    h1, h2 {
+      color: #ffffff;
+      margin: 0 0 8px 0;
+    }
+
+    /* --- Inputs / textareas --- */
+    .input-area, textarea, input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #ffffff;
+      color: #111;
+      box-sizing: border-box;
+      font-size: 14px;
+      min-height: 150px;
+    }
+
+    /* small text */
+    #status {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.09);
+      color: #ffffff;
+    }
+    /* JS toggles these classes; keep them defined for expected behaviors */
+    .success {
+      background: rgba(255,255,255,0.06);
+      color: #eaf6ff;
+    }
+    .error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    /* --- Button (shared style for <button> and .button anchors) --- */
+    .button {
+      display: inline-block;
+      background: #f3f6fb;
+      color: #111;
+      padding: 10px 20px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      text-align: center;
+      margin: 5px 0;
+    }
+    .button:hover {
+      background: #e7ecf5;
+    }
+    .button:disabled,
+    .button[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* --- Table --- */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background: #ffffff;
+      color: #111;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      background: #1789e0; /* header matched to page blue */
+      color: #ffffff;
+      font-weight: 600;
+    }
+    tr:nth-child(even) td {
+      background-color: #fafafa;
+    }
+
+    /* duplicate highlight preserved for export/highlight behavior */
+    .duplicate-highlight td {
+      background-color: #fff3cd !important;
+    }
+
+    /* responsive */
+    @media (max-width: 760px) {
+      .section { padding: 14px; }
+      th, td { padding: 10px; font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Parent Child Reference Tool</h1>
+
+  <div class="section">
+    <h2>1. Data is loaded automatically. If changes are needed, let Josh Kilbury know.</h2>
+    <div id="status">Loading dataset from GitHub...</div>
+  </div>
+
+  <div class="section">
+    <h2>2. Enter parent part numbers with no dashes or spaces.</h2>
+    <textarea id="partNumberInput" class="input-area" placeholder="Enter parent part numbers (one per line)"></textarea>
+  </div>
+
+  <div class="section">
+    <h2>3. Results. If line is highlighted there are multiple child part options.</h2>
+    <button id="exportButton" class="button" disabled>Export to Excel</button>
+    <div id="resultsArea">
+      <table id="resultsTable" aria-labelledby="resultsLabel">
+        <thead>
+          <tr>
+            <th>Parent Part</th>
+            <th>Child Part</th>
+            <th>Conversion</th>
+            <th>Child Description</th>
+            <th>Child UOM</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>4. Product Discontinuation Form</h2>
+    <p>If you need to request a discontinued code to be removed from a part number, please use the link below:</p>
+    <p>
+      <a href="https://app.smartsheet.com/b/form/e7a2320f78a34adab9fead61e0ef9a43" target="_blank" class="button">
+        Open Smartsheet Form
+      </a>
+    </p>
+  </div>
+
+  <div class="section">
+    <h2>5. To request new child parts, complete this form and email it to product.admin@thermofisher.com.</h2>
+    <p>
+      <a href="https://github.com/jkiltmo/parttool/raw/refs/heads/main/CHILD%20PART%20CREATION%20AND%20ASSOCIATION%20FORM%20WITH%20SAMPLE%20AND%20WORKSHEET.xlsx?raw=true" 
+         download="ChildPartForm.xlsx" 
+         class="button">
+        Download Child Creation Form
+      </a>
+    </p>
+  </div>
+
+  <script>
+    let datasetData = [];
+    let currentResults = [];
+    // Mapping parent -> number of matches (not used for highlighting now, kept for exports/other logic)
+    let parentMatchCounts = {};
+
+    // IMPLEMENTATION NOTE: THIS IS WHERE THE FILE IS CHANGED AFTER YOU UPLOAD TO GITHUB. MAKE SURE IT IS THE RAW LINK. 
+    const githubCSVUrl = "https://raw.githubusercontent.com/jkiltmo/parttool/refs/heads/main/Child%20Parts%202MAR2026CSV.csv";
+
+    fetch(githubCSVUrl)
+      .then(response => {
+        if (!response.ok) throw new Error("Network response was not ok");
+        return response.text();
+      })
+      .then(csvText => {
+        const workbook = XLSX.read(csvText, { type: 'string' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        datasetData = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+
+        document.getElementById('status').className = 'success';
+        document.getElementById('status').textContent =
+          `Dataset loaded successfully! ${datasetData.length} records found.`;
+        document.getElementById('exportButton').disabled = false;
+        updateResults();
+      })
+      .catch(error => {
+        console.error("Error loading GitHub CSV:", error);
+        document.getElementById('status').className = 'error';
+        document.getElementById('status').textContent =
+          'Error loading dataset from GitHub. Please check the file URL and formatting.';
+      });
+
+    document.getElementById('partNumberInput').addEventListener('input', updateResults);
+
+    function normalizeDisplay(value) {
+      // Replace N/A with 'No Child' for display per request.
+      if (value === undefined || value === null) return 'No Child';
+      const s = String(value).trim();
+      if (s === '' || s.toUpperCase() === 'N/A') return 'No Child';
+      return s;
+    }
+
+    function updateResults() {
+      if (datasetData.length === 0) return;
+
+      const searchParts = document.getElementById('partNumberInput').value
+        .split('\n')
+        .map(part => part.trim())
+        .filter(part => part.length > 0);
+
+      const resultsBody = document.getElementById('resultsBody');
+      resultsBody.innerHTML = '';
+      currentResults = [];
+      parentMatchCounts = {};
+      const seen = new Set();
+
+      // Build results (still include inputIndex in dedupe so repeated searches show separately)
+      searchParts.forEach((searchPart, inputIndex) => {
+        const matches = datasetData.filter(row =>
+          String(row.Parent).trim() === String(searchPart).trim()
+        );
+
+        if (matches.length > 0) {
+          matches.forEach(match => {
+            const parentKey = String(match.Parent).trim();
+            const childValRaw = match.Child || '';
+            const conversionRaw = match.Conversion || '';
+            const childDescriptionRaw = match['Child Description'] || '';
+            const childUOMRaw = match['Child SU'] || '';
+
+            const result = {
+              parent: parentKey,
+              child: normalizeDisplay(childValRaw),
+              conversion: normalizeDisplay(conversionRaw),
+              childDescription: normalizeDisplay(childDescriptionRaw),
+              childUOM: normalizeDisplay(childUOMRaw)
+            };
+
+            // Keep inputIndex in dedupe key so duplicate input lines produce separate rows
+            const resultKey = JSON.stringify(result) + '::' + inputIndex;
+
+            if (!seen.has(resultKey)) {
+              seen.add(resultKey);
+              parentMatchCounts[parentKey] = (parentMatchCounts[parentKey] || 0) + 1;
+              currentResults.push(result);
+            }
+          });
+        } else {
+          // No match -> produce a No Child result (and allow duplicates per input line)
+          const noChildResult = {
+            parent: searchPart,
+            child: 'No Child',
+            conversion: 'No Child',
+            childDescription: 'No Child',
+            childUOM: 'No Child'
+          };
+          const noChildKey = JSON.stringify(noChildResult) + '::' + inputIndex;
+          if (!seen.has(noChildKey)) {
+            seen.add(noChildKey);
+            parentMatchCounts[searchPart] = (parentMatchCounts[searchPart] || 0) + 1;
+            currentResults.push(noChildResult);
+          }
+        }
+      });
+
+      // Determine highlighting: only highlight parents where there are >1 DISTINCT child values
+      const parentToChildSet = {};
+      currentResults.forEach(r => {
+        const p = r.parent;
+        parentToChildSet[p] = parentToChildSet[p] || new Set();
+        // include child string as-is (No Child counts as a distinct value)
+        parentToChildSet[p].add(r.child);
+      });
+
+      currentResults.forEach(result => {
+        const row = document.createElement('tr');
+        const distinctChildCount = parentToChildSet[result.parent] ? parentToChildSet[result.parent].size : 1;
+        if (distinctChildCount > 1) row.classList.add('duplicate-highlight');
+
+        row.innerHTML = `
+          <td>${result.parent}</td>
+          <td>${result.child}</td>
+          <td>${result.conversion}</td>
+          <td>${result.childDescription}</td>
+          <td>${result.childUOM}</td>
+        `;
+        resultsBody.appendChild(row);
+      });
+
+      document.getElementById('exportButton').disabled = currentResults.length === 0;
+    }
+
+    document.getElementById('exportButton').addEventListener('click', function () {
+      if (currentResults.length === 0) return;
+
+      const headers = ["parent", "child", "conversion", "childDescription", "childUOM"];
+      const ws = XLSX.utils.json_to_sheet(currentResults, { header: headers });
+
+      const range = XLSX.utils.decode_range(ws['!ref']);
+
+      // Recreate parent -> distinct child set to match UI highlight rule for export
+      const parentToChildSetForExport = {};
+      currentResults.forEach(r => {
+        parentToChildSetForExport[r.parent] = parentToChildSetForExport[r.parent] || new Set();
+        parentToChildSetForExport[r.parent].add(r.child);
+      });
+
+      for (let r = 1; r <= range.e.r; r++) {
+        const parentCellAddr = XLSX.utils.encode_cell({ r, c: 0 });
+        const parentVal = ws[parentCellAddr] ? ws[parentCellAddr].v : undefined;
+        if (parentVal && parentToChildSetForExport[parentVal] && parentToChildSetForExport[parentVal].size > 1) {
+          for (let c = 0; c <= range.e.c; c++) {
+            const addr = XLSX.utils.encode_cell({ r, c });
+            if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+            ws[addr].s = {
+              fill: { patternType: "solid", fgColor: { rgb: "FFF3CD" } }
+            };
+          }
+        }
+      }
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Results");
+      XLSX.writeFile(wb, "matching_parts.xlsx");
+    });
+  </script>
+</body>
+</html>
