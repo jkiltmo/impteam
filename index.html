@@ -5,34 +5,142 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Implementation Team Tools</title>
 
-    <style>
-    body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 0; background: #0b74de; color: #222; }
-    header { background: #0b74de; color: white; padding: 24px 16px; }
-    main { max-width: 900px; margin: 36px auto; padding: 0 16px; }
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-    .card { background: white; padding: 18px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-    a.button { display:inline-block; margin-top:8px; padding:10px 14px; background:#0b74de; color:white; text-decoration:none; border-radius:6px; }
-    footer { text-align:center; color:#666; padding:24px 0; margin-top:36px; }
-    </style>
-    
+<style>
+body { 
+  font-family: Arial, Helvetica, sans-serif; 
+  margin: 0; 
+  padding: 0; 
+  background: #0b74de; 
+  color: #222; 
+}
+
+header { 
+  background: #0b74de; 
+  color: white; 
+  padding: 24px 16px;
+  text-align: center; 
+}
+
+main { 
+  max-width: 900px; 
+  margin: 36px auto; 
+  padding: 0 16px; 
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+/* Make tile the button */
+.card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.card {
+  background: white;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #e6e8ec;
+  transition: all .15s ease;
+  cursor: pointer;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+
+  min-height: 90px;        /* smaller */
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  border-color: #0b74de;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+footer { 
+  text-align:center; 
+  color:#666; 
+  padding:24px 0; 
+  margin-top:36px; 
+}
+</style>
+
 </head>
 <body>
+
 <header>
-  <div style="max-width:1100px;margin:0 auto;padding:0 16px; text-align:center;">
+  <div style="max-width:1100px;margin:0 auto;padding:0 16px;">
     <h1 style="margin:0;">Implementation Team Tools</h1>
     <p style="margin:4px 0 0; opacity:0.9;"></p>
   </div>
 </header>
+
 <main>
   <section class="cards">
-    <div class="card"><h3>Child Tool</h3><a class="button" href="child.html">Open</a></div>
-<div class="card"><h3>Sign Tool</h3><a class="button" href="sign.html">Open</a></div>
-<div class="card"><h3>CRL Billing</h3><a class="button" href="CRLBilling.html">Open</a></div>
-<div class="card"><h3>RGN Billing</h3><a class="button" href="RGNBilling.html">Open</a></div>
+
+    <a class="card-link" href="child.html">
+      <div class="card">
+        <h3>Parent Child Tool</h3>
+        <p></p>
+      </div>
+    </a>
+
+    <a class="card-link" href="sign.html">
+      <div class="card">
+        <h3>Sign Tool</h3>
+        <p></p>
+      </div>
+    </a>
+
+    <a class="card-link" href="https://app.smartsheet.com/sheets/XX4cCJGq7VRwXqxHPVQCrqpmg9qQr573g9C3cJR1" target="_blank">
+      <div class="card">
+        <h3>Implementation Calendar</h3>
+        <p></p>
+      </div>
+    </a>
+
+    <a class="card-link" href="https://app.smartsheet.com/b/form/d07a0d8b033a46139b595fca98010435" target="_blank">
+      <div class="card">
+        <h3>Project Timesheet</h3>
+        <p></p>
+      </div>
+    </a>
+
+    <a class="card-link" href="RGNBilling.html">
+      <div class="card">
+        <h3>RGN Billing</h3>
+        <p></p>
+      </div>
+    </a>
+
+    <a class="card-link" href="CRLBilling.html">
+      <div class="card">
+        <h3>CRL Billing</h3>
+        <p></p>
+      </div>
+    </a>
+
   </section>
 </main>
+
 <footer>
   <small></small>
+  <br><br>
+  <a href="mailto:joshua.kilbury@thermofisher.com?subject=Website Feedback"
+     style="display:inline-block;padding:8px 14px;background:#0b74de;color:white;border-radius:6px;text-decoration:none;">
+     Click here to provide feedback.
+  </a>
 </footer>
+
 </body>
 </html>
