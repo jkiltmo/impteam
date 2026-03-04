@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
+
   <meta charset="utf-8" />
   <title>Combined — Sections 1-4</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -123,9 +124,54 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <!-- jsPDF-AutoTable for nice table rendering -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+
+<style>
+/* top-banner styles updated to center items and enforce consistent width */
+.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:10px 0}
+.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center;justify-content:center;box-sizing:border-box}
+.top-nav .nav-link{padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;color:var(--text-color,#111);opacity:0.95;transition:transform .12s ease,box-shadow .12s ease}
+.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 6px 20px rgba(11,114,255,0.18);transform:translateY(-1px)}
+.top-nav .nav-link:hover{opacity:1;transform:translateY(-1px)}
+/* ensure the nav inner container stays fixed width so Sign page matches Child page */
+.top-nav{width:100%;max-width:1100px}
+/* responsive: allow wrapping but keep centered */
+@media (max-width:900px){ .top-nav{flex-wrap:wrap;gap:10px;padding:8px} .top-nav .nav-link{padding:8px 12px} }
+.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:8px 0}
+.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center}
+.top-nav .nav-link{padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;color:var(--text-color,#111);opacity:0.9}
+.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 4px 14px rgba(11,114,255,0.18)}
+.top-nav .nav-link:hover{opacity:1}
+@media (max-width:700px){ .top-nav{flex-wrap:wrap;justify-content:center} }
+</style>
 </head>
 <body>
 
+<!-- Top banner nav inserted by assistant -->
+<header class="top-banner" role="banner">
+  <nav class="top-nav" role="navigation" aria-label="Main">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="child.html">Child</a>
+    <a class="nav-link" href="sign.html">Sign</a>
+    <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
+    <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
+  </nav>
+</header>
+<script>
+// mark active link based on current filename (handles index as home)
+(function(){
+  try {
+    const links = document.querySelectorAll('.top-banner .nav-link');
+    const path = location.pathname.split('/').pop() || 'index.html';
+    links.forEach(a=>{
+      const target = a.getAttribute('href');
+      if (target === path) {
+        a.classList.add('active');
+        a.setAttribute('aria-current','page');
+      }
+    });
+  } catch(e){console.warn(e)}
+})();
+</script>
 <!-- SECTION 1 -->
 <section id="section1">
   <h1>Step 1 - Consolidated Billing</h1>
