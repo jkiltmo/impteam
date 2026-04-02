@@ -3,7 +3,7 @@
 <head>
 
   <meta charset="utf-8" />
-  <title>Billing Tool</title>
+  <title>Combined — Sections 1-4</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     /* --- Global page / typography (match Child Part Tool) --- */
@@ -152,7 +152,6 @@
     <a class="nav-link" href="index.html">Home</a>
     <a class="nav-link" href="child.html">Child</a>
     <a class="nav-link" href="sign.html">Sign</a>
-    <a class="nav-link" href="bin.html">BIN</a>
     <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
     <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
   </nav>
@@ -554,258 +553,375 @@
 <section id="section3">
   <h3>Step 3 - Consolidated Billing PDFs</h3>
   <p class="small">Upload the same consolidated billing report from Step 1. Click Detect groups & create ZIP. This step takes time. Once complete move to step 4.</p>
-  <label>Excel (.xlsx): <input id="s3_file" type="file" accept=".xlsx,.xls" /></label>
+  <label>Excel (.xlsx/.xls): <input id="s3_file" type="file" accept=".xlsx,.xls" /></label>
   <div class="row"><button id="s3_go" disabled>Detect groups &amp; create ZIP</button></div>
   <div id="s3_status" class="status small"></div>
   <div id="s3_progress" class="small"></div>
-  <div id="s3_render" style="position:fixed;left:-9999px;top:-9999px;width:1500px" aria-hidden="true"></div>
+  <div id="s3_render" aria-hidden="true"></div>
 
-  <!-- Section 3: styled jsPDF + AutoTable rendering that preserves exact text -->
   <script>
-(function(){
-  const fileEl=document.getElementById('s3_file'), btn=document.getElementById('s3_go'), status=document.getElementById('s3_status'), progress=document.getElementById('s3_progress');
-  fileEl.addEventListener('change',()=>{ btn.disabled = !fileEl.files.length; status.textContent=''; progress.textContent=''; });
+  (function(){
+    const fileEl = document.getElementById('s3_file');
+    const btn = document.getElementById('s3_go');
+    const status = document.getElementById('s3_status');
+    const progress = document.getElementById('s3_progress');
 
-  function isBlank(cell){ if(!cell) return true; const v=(cell.v===undefined||cell.v===null)?'':String(cell.v).trim(); return v==='' }
-  function cellBold(cell){ if(!cell||!cell.s) return false; try{ const f=cell.s.font||{}; if(f.bold===true) return true; if(f.fontWeight && (String(f.fontWeight).toLowerCase()==='bold' || parseInt(f.fontWeight,10)>=700)) return true; return false }catch{return false} }
-  function parseNumeric(v){ if(v==null||v==='') return NaN; if(typeof v==='number') return v; let s=String(v).trim(); let neg=false; if(s.startsWith('(')&&s.endsWith(')')){neg=true;s=s.slice(1,-1)} s=s.replace(/[^0-9.\-]/g,''); if(s===''||s==='.'||s==='-') return NaN; const n=parseFloat(s); return isNaN(n)?NaN:(neg?-n:n); }
-  function toCents(v){ const n=parseNumeric(v); if(!isFinite(n)||isNaN(n)) return null; return Math.round(n*100) }
-  function centsToStr(c){ return (c/100).toFixed(2) }
-  function sanitize(s){ if(s==null) return ''; let t=String(s); t=t.normalize('NFKD').replace(/[\u0300-\u036f]/g,''); t=t.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-\.]/g,'_').replace(/_+/g,'_'); return t.slice(0,80)||'' }
-
-  // Create styled PDF using jsPDF + AutoTable while preserving exact cell text
-  async function createStyledPdf(header, rows, opts = {}){
-    const { orientation = 'landscape', paper = 'letter', marginPt = 18, baseFontSize = 10, minFontSize = 6 } = opts;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation, unit: 'pt', format: paper });
-    doc.setFont('helvetica');
-
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    const left = marginPt;
-    const right = pw - marginPt;
-    const usableW = right - left;
-
-    const numCols = header.length;
-
-    // detect numeric columns visually (for right-align only, not to change content)
-    const numericCol = new Array(numCols).fill(false);
-    for (let c = 0; c < numCols; c++){
-      let numericCount = 0, totalCount = 0;
-      for (let r = 0; r < Math.min(rows.length, 80); r++){
-        const v = rows[r][c];
-        if (v === undefined || v === null || String(v).trim() === '') continue;
-        totalCount++;
-        if (!isNaN(parseNumeric(v))) numericCount++;
-      }
-      if (totalCount > 0 && (numericCount / totalCount) >= 0.6) numericCol[c] = true;
-      const h = String(header[c]||'').toLowerCase();
-      if (h.includes('total')||h.includes('ext')||h.includes('amount')||h.includes('$')||h.includes('grand')) numericCol[c] = true;
-    }
-
-    // measure natural widths using jsPDF at baseFontSize
-    doc.setFontSize(baseFontSize);
-    function measure(txt){ try { return doc.getTextWidth(String(txt)); } catch(e){ return String(txt).length * (baseFontSize * 0.5); } }
-    const maxWidths = new Array(numCols).fill(0);
-    for (let c = 0; c < numCols; c++){ maxWidths[c] = Math.max(maxWidths[c], measure(header[c]||'')); }
-    for (let r = 0; r < Math.min(rows.length, 400); r++){
-      for (let c = 0; c < numCols; c++){
-        const cell = rows[r][c] !== undefined && rows[r][c] !== null ? String(rows[r][c]) : '';
-        maxWidths[c] = Math.max(maxWidths[c], measure(cell));
-      }
-    }
-
-    const colPadding = 12; // slightly larger padding for nicer visual spacing
-    const paddedWidths = maxWidths.map(w => Math.max(30, w + colPadding));
-    const totalNatural = paddedWidths.reduce((a,b)=>a+b,0) || 1;
-    // compute horizontal scale to fit usableW
-    const hScale = Math.min(1, usableW / totalNatural);
-    // compute font size (scale down if needed)
-    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * hScale));
-
-    // compute final column widths
-    let colWidths = paddedWidths.map(w => Math.floor(w * hScale));
-    // distribute leftover pixels
-    let assigned = colWidths.reduce((a,b)=>a+b,0);
-    let leftover = Math.round(usableW - assigned);
-    let ci = 0;
-    while (leftover > 0){
-      colWidths[ci % numCols] += 1;
-      leftover--;
-      ci++;
-    }
-
-    // Build AutoTable columns and body: AutoTable accepts head as array and body as array of arrays
-    const head = [ header.map(h => String(h||'')) ];
-    const body = rows.map(r => r.map(c => c===undefined||c===null? '': String(c)) );
-
-    // Build columnStyles object for autoTable (set widths and alignment)
-    const columnStyles = {};
-    for (let i = 0; i < numCols; i++){
-      columnStyles[i] = {
-        cellWidth: colWidths[i],
-        halign: numericCol[i] ? 'right' : 'left',
-        valign: 'middle'
-      };
-    }
-
-    // autoTable options: theme grid, header style, zebra, font size & padding
-    doc.autoTable({
-      head,
-      body,
-      startY: marginPt,
-      margin: { left: left, right: marginPt },
-      styles: {
-        font: 'helvetica',
-        fontSize: fontSize,
-        cellPadding: 4,
-        overflow: 'linebreak',
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: [245,245,245],
-        textColor: 20,
-        fontStyle: 'bold',
-        halign: 'left'
-      },
-      alternateRowStyles: {
-        fillColor: [250,250,250]
-      },
-      theme: 'grid',
-      columnStyles,
-      tableWidth: 'auto',
-      showHead: 'everyPage',
-      didDrawPage: function (data) {
-        // nothing extra; header is handled by autoTable
-      }
+    fileEl.addEventListener('change', () => {
+      btn.disabled = !fileEl.files.length;
+      status.textContent = '';
+      progress.textContent = '';
     });
 
-    const pdfBytes = doc.output('arraybuffer');
-    return new Blob([pdfBytes], { type: 'application/pdf' });
-  }
-
-  // grouping logic unchanged (keeps original detection behavior)
-  function detectMoneyCols(header, aoa, sample=30){
-    const lower = header.map(h=>String(h||'').toLowerCase());
-    const keywords=['total','ext','amount','unit $','unit$','$','tax','line total'];
-    const money=new Set();
-    for(let i=0;i<header.length;i++){ const h=lower[i]||''; for(const kw of keywords) if(h.includes(kw)){ money.add(i); break; } }
-    if(money.size===0){
-      const rows = Math.min(sample, Math.max(0, aoa.length-1));
-      for(let c=0;c<header.length;c++){
-        let num=0, tot=0;
-        for(let r=1;r<=rows;r++){ const v=(aoa[r]&&aoa[r][c]!==undefined)?aoa[r][c]:''; if(v===''||v==null) continue; tot++; const n=parseNumeric(v); if(!isNaN(n)) num++; }
-        if(tot>0 && (num/tot)>=0.6) money.add(c);
-      }
+    function isBlank(cell){
+      if(!cell) return true;
+      const v = (cell.v === undefined || cell.v === null) ? '' : String(cell.v).trim();
+      return v === '';
     }
-    return money;
-  }
 
-  function findHeaderIndex(headerLower, cands){ for(const c of cands){ const lc=c.toLowerCase(); const idx = headerLower.findIndex(h => h===lc || (h && h.includes(lc))); if(idx!==-1) return idx; } return -1; }
+    function parseNumeric(v){
+      if(v == null || v === '') return NaN;
+      if(typeof v === 'number') return v;
+      let s = String(v).trim();
+      let neg = false;
+      if(s.startsWith('(') && s.endsWith(')')){ neg = true; s = s.slice(1, -1); }
+      s = s.replace(/[^0-9.\-]/g, '');
+      if(s === '' || s === '.' || s === '-') return NaN;
+      const n = parseFloat(s);
+      return isNaN(n) ? NaN : (neg ? -n : n);
+    }
 
-  btn.addEventListener('click', async ()=>{
-    status.textContent='Reading workbook...'; progress.textContent='';
-    const f=fileEl.files[0]; if(!f){ status.textContent='No file.'; return; }
-    try{
-      const ab = await f.arrayBuffer();
-      // read with raw:false so we get formatted text strings where possible
-      const wb = XLSX.read(ab, { type:'array', cellStyles:true, raw:false });
-      const sheet = wb.Sheets[wb.SheetNames[0]]; if(!sheet) throw new Error('Sheet missing');
-      const aoa = XLSX.utils.sheet_to_json(sheet,{header:1,defval:'', raw:false}); if(!aoa||aoa.length===0){ status.textContent='Sheet empty'; return; }
-      const header = aoa[0].map(c=>c==null?'':String(c));
-      let lastRow = aoa.length;
-      if(sheet['!ref']) try{ const rng = XLSX.utils.decode_range(sheet['!ref']); lastRow = rng.e.r + 1; }catch(e){}
-      const boundaries=[]; let sawStyle=false;
-      for(let r=2;r<=lastRow;r++){
-        const Ac = sheet['A'+r], Bc = sheet['B'+r], Cc = sheet['C'+r], Dc = sheet['D'+r], Ec = sheet['E'+r];
-        const bBlank = isBlank(Bc), cBlank=isBlank(Cc), dBlank = isBlank(Dc), eBlank=isBlank(Ec);
-        const boldA = cellBold(Ac); if(boldA) sawStyle=true;
-        const aHas = !isBlank(Ac);
-        let isBoundary=false;
-        if(boldA && bBlank && cBlank && dBlank && eBlank) isBoundary=true;
-        else if(!sawStyle && aHas && bBlank && cBlank && dBlank && eBlank) isBoundary=true;
-        if(isBoundary) boundaries.push(r);
-      }
+    function toCents(v){
+      const n = parseNumeric(v);
+      if(!isFinite(n) || isNaN(n)) return null;
+      return Math.round(n * 100);
+    }
 
-      let groups=[];
-      if(boundaries.length>0){ let start=2; for(const br of boundaries){ const end=br; if(start<=end) groups.push({from:start,to:end}); start=end+1; } if(start<=lastRow) groups.push({from:start,to:lastRow}); }
-      else { const starts=[]; for(let r=2;r<=lastRow;r++) if(!isBlank(sheet['A'+r])) starts.push(r); if(starts.length===0){ if(lastRow>=2) groups.push({from:2,to:lastRow}); } else { for(let i=0;i<starts.length;i++){ const s=starts[i]; const e=(i+1<starts.length)?starts[i+1]-1:lastRow; groups.push({from:s,to:e}); } } }
+    function centsToStr(c){
+      return (c / 100).toFixed(2);
+    }
 
-      if(groups.length===0){ status.textContent='No groups found'; return; }
-      status.textContent = sawStyle?`Detected ${groups.length} groups (bold-A rule)`:`Detected ${groups.length} groups (content fallback)`;
+    function sanitize(s){
+      if(s == null) return '';
+      let t = String(s);
+      t = t.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+      t = t.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-\.]/g, '_').replace(/_+/g, '_');
+      return t.slice(0, 80) || '';
+    }
 
-      const moneyCols = detectMoneyCols(header, aoa);
-      const headerLower = header.map(h=>String(h||'').toLowerCase());
-      const costCenterIdx = findHeaderIndex(headerLower, ['cost center','cost_center','costcenter']);
-      const totalIdx = findHeaderIndex(headerLower, ['ext $','ext','total','line total','amount','unit $','unit$']);
-      const masterIdx = findHeaderIndex(headerLower, ['master inv nbr','master inv number','master inv','master_inv_nbr','masterinvoice','master invoice','master']);
+    function detectMoneyCols(header, aoa, sample = 30){
+      const lower = header.map(h => String(h || '').toLowerCase());
+      const keywords = ['total', 'ext', 'amount', 'unit $', 'unit$', '$', 'tax', 'line total'];
+      const money = new Set();
 
-      const allTotals = new Map(), transportTotals = new Map();
-      for(let r=2;r<=lastRow;r++){
-        const row = aoa[r-1]||[]; const cc=(costCenterIdx>=0)?(row[costCenterIdx]||'UNSPECIFIED'):'UNSPECIFIED'; const ccKey=String(cc).trim()||'UNSPECIFIED';
-        let totalC = null;
-        if(totalIdx>=0) totalC = toCents(row[totalIdx]);
-        else { for(const mi of moneyCols){ const cval=toCents(row[mi]); if(cval!==null){ totalC=cval; break; } } }
-        if(totalC !== null) allTotals.set(ccKey,(allTotals.get(ccKey)||0)+totalC);
-        const catalogVal = row[0]; const unitVal = row[2]!==undefined?String(row[2]).trim():''; const catalogBlank = (catalogVal==null||String(catalogVal).trim()===''); const unitEA = unitVal.toUpperCase()==='EA';
-        if(catalogBlank && unitEA){
-          let transportC = totalC;
-          if(transportC===null){ for(const mi of moneyCols){ const cval=toCents(row[mi]); if(cval!==null){ transportC=cval; break; } } }
-          if(transportC!==null) transportTotals.set(ccKey,(transportTotals.get(ccKey)||0)+transportC);
-        }
-      }
-
-      const zip = new JSZip();
-      for(let gi=0;gi<groups.length;gi++){
-        const g=groups[gi];
-        progress.textContent = `Rendering ${gi+1}/${groups.length} — rows ${g.from}-${g.to}...`;
-        const firstRow = aoa[g.from-1]||[];
-        let masterVal = ''; if(masterIdx>=0) masterVal = firstRow[masterIdx]; if(!masterVal) masterVal = firstRow[0];
-        let safeMaster = sanitize(masterVal||''); if(!safeMaster) safeMaster = `rows_${g.from}-${g.to}`;
-        let costCenterVal = 'UNSPECIFIED'; if(costCenterIdx>=0){ const v = firstRow[costCenterIdx]; if(v) costCenterVal=v; }
-        let safeCC = sanitize(costCenterVal||''); if(!safeCC) safeCC='UNSPECIFIED';
-
-        // Build rows array for PDF preserving formatted strings exactly (sheet_to_json used raw:false above)
-        const rowsForPdf = [];
-        for(let r=g.from;r<=g.to;r++){
-          const row = aoa[r-1]||[];
-          const out = [];
-          for(let c=0;c<header.length;c++){
-            const raw = row[c];
-            out.push(raw===undefined||raw===null?'':String(raw));
+      for(let i = 0; i < header.length; i++){
+        const h = lower[i] || '';
+        for(const kw of keywords){
+          if(h.includes(kw)){
+            money.add(i);
+            break;
           }
-          rowsForPdf.push(out);
         }
-
-        // create styled PDF that fits columns to page width
-        try{
-          const pdfBlob = await createStyledPdf(header.map(h=>h||''), rowsForPdf, { orientation:'landscape', paper:'letter', marginPt:18, baseFontSize:10, minFontSize:6 });
-          const fname = `RGNBillingRpt_${safeMaster}_${safeCC}.pdf`;
-          zip.file(fname, pdfBlob);
-        }catch(e){ console.error('PDF error',e); }
-        progress.textContent = `Rendered ${gi+1}/${groups.length}.`;
       }
 
-      // Build manifest and ZIP
-      const manifest = ['Generated by Billing PDF tool','']; manifest.push('Totals by Cost Center (USD):');
-      for(const [cc,cents] of allTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
-      manifest.push(''); manifest.push('Transport totals:');
-      for(const [cc,cents] of transportTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
-      zip.file('MANIFEST.txt', manifest.join('\n'));
+      if(money.size === 0){
+        const rows = Math.min(sample, Math.max(0, aoa.length - 1));
+        for(let c = 0; c < header.length; c++){
+          let num = 0, tot = 0;
+          for(let r = 1; r <= rows; r++){
+            const v = (aoa[r] && aoa[r][c] !== undefined) ? aoa[r][c] : '';
+            if(v === '' || v == null) continue;
+            tot++;
+            const n = parseNumeric(v);
+            if(!isNaN(n)) num++;
+          }
+          if(tot > 0 && (num / tot) >= 0.6) money.add(c);
+        }
+      }
+      return money;
+    }
 
-      progress.textContent='Creating ZIP...';
-      const zipBlob = await zip.generateAsync({type:'blob'}, meta => { progress.textContent = `Zipping: ${Math.round(meta.percent)}%`; });
-      const n = (fileEl.files[0]&&fileEl.files[0].name&&fileEl.files[0].name.toLowerCase().endsWith('.xlsx'))?fileEl.files[0].name.replace(/\.xlsx$/i,''):'RGNBilling';
-      const zipName = `${n}_group_pdfs_vector.zip`;
-      const url = URL.createObjectURL(zipBlob); const a=document.createElement('a'); a.href=url; a.download=zipName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      status.textContent = `Done — downloaded ${zipName}.`; progress.textContent='';
-    }catch(err){ console.error(err); status.textContent='Error: '+(err&&err.message?err.message:String(err)); progress.textContent=''; }
-  });
-})();
+    function findHeaderIndex(headerLower, cands){
+      for(const c of cands){
+        const lc = c.toLowerCase();
+        const idx = headerLower.findIndex(h => h === lc || (h && h.includes(lc)));
+        if(idx !== -1) return idx;
+      }
+      return -1;
+    }
+
+    async function createStyledPdf(header, rows, opts = {}){
+      const { orientation = 'landscape', paper = 'letter', marginPt = 18, baseFontSize = 10, minFontSize = 6 } = opts;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation, unit: 'pt', format: paper });
+      doc.setFont('helvetica');
+
+      const pw = doc.internal.pageSize.getWidth();
+      const left = marginPt;
+      const right = pw - marginPt;
+      const usableW = right - left;
+      const numCols = header.length;
+
+      const numericCol = new Array(numCols).fill(false);
+      for(let c = 0; c < numCols; c++){
+        let numericCount = 0, totalCount = 0;
+        for(let r = 0; r < Math.min(rows.length, 80); r++){
+          const v = rows[r][c];
+          if(v === undefined || v === null || String(v).trim() === '') continue;
+          totalCount++;
+          if(!isNaN(parseNumeric(v))) numericCount++;
+        }
+        if(totalCount > 0 && (numericCount / totalCount) >= 0.6) numericCol[c] = true;
+        const h = String(header[c] || '').toLowerCase();
+        if(h.includes('total') || h.includes('ext') || h.includes('amount') || h.includes('$') || h.includes('grand')) numericCol[c] = true;
+      }
+
+      doc.setFontSize(baseFontSize);
+      function measure(txt){
+        try { return doc.getTextWidth(String(txt)); }
+        catch(e){ return String(txt).length * (baseFontSize * 0.5); }
+      }
+
+      const maxWidths = new Array(numCols).fill(0);
+      for(let c = 0; c < numCols; c++) maxWidths[c] = Math.max(maxWidths[c], measure(header[c] || ''));
+      for(let r = 0; r < Math.min(rows.length, 400); r++){
+        for(let c = 0; c < numCols; c++){
+          const cell = rows[r][c] !== undefined && rows[r][c] !== null ? String(rows[r][c]) : '';
+          maxWidths[c] = Math.max(maxWidths[c], measure(cell));
+        }
+      }
+
+      const colPadding = 12;
+      const paddedWidths = maxWidths.map(w => Math.max(30, w + colPadding));
+      const totalNatural = paddedWidths.reduce((a, b) => a + b, 0) || 1;
+      const hScale = Math.min(1, usableW / totalNatural);
+      const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * hScale));
+
+      let colWidths = paddedWidths.map(w => Math.floor(w * hScale));
+      let assigned = colWidths.reduce((a, b) => a + b, 0);
+      let leftover = Math.round(usableW - assigned);
+      let ci = 0;
+      while(leftover > 0){
+        colWidths[ci % numCols] += 1;
+        leftover--;
+        ci++;
+      }
+
+      const head = [header.map(h => String(h || ''))];
+      const body = rows.map(r => r.map(c => c === undefined || c === null ? '' : String(c)));
+
+      const columnStyles = {};
+      for(let i = 0; i < numCols; i++){
+        columnStyles[i] = {
+          cellWidth: colWidths[i],
+          halign: numericCol[i] ? 'right' : 'left',
+          valign: 'middle'
+        };
+      }
+
+      doc.autoTable({
+        head,
+        body,
+        startY: marginPt,
+        margin: { left: left, right: marginPt },
+        styles: {
+          font: 'helvetica',
+          fontSize: fontSize,
+          cellPadding: 4,
+          overflow: 'linebreak',
+          valign: 'middle'
+        },
+        headStyles: {
+          fillColor: [245, 245, 245],
+          textColor: 20,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        alternateRowStyles: {
+          fillColor: [250, 250, 250]
+        },
+        theme: 'grid',
+        columnStyles,
+        tableWidth: 'auto',
+        showHead: 'everyPage'
+      });
+
+      const pdfBytes = doc.output('arraybuffer');
+      return new Blob([pdfBytes], { type: 'application/pdf' });
+    }
+
+    btn.addEventListener('click', async () => {
+      status.textContent = 'Reading workbook...';
+      progress.textContent = '';
+      const f = fileEl.files[0];
+      if(!f){ status.textContent = 'No file.'; return; }
+
+      try{
+        const ab = await f.arrayBuffer();
+        const wb = XLSX.read(ab, { type: 'array', cellStyles: true, raw: false });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if(!sheet) throw new Error('Sheet missing');
+
+        const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+        if(!aoa || aoa.length === 0){ status.textContent = 'Sheet empty'; return; }
+
+        const header = aoa[0].map(c => c == null ? '' : String(c));
+        let lastRow = aoa.length;
+        if(sheet['!ref']){
+          try{
+            const rng = XLSX.utils.decode_range(sheet['!ref']);
+            lastRow = rng.e.r + 1;
+          }catch(e){}
+        }
+
+        const headerLower = header.map(h => String(h || '').toLowerCase());
+        const costCenterIdx = findHeaderIndex(headerLower, ['cost center', 'cost_center', 'costcenter']);
+        const totalIdx = findHeaderIndex(headerLower, ['ext $', 'ext', 'total', 'line total', 'amount', 'unit $', 'unit$']);
+        const masterIdx = findHeaderIndex(headerLower, ['master inv nbr', 'master inv number', 'master inv', 'master_inv_nbr', 'masterinvoice', 'master invoice', 'master']);
+        const moneyCols = detectMoneyCols(header, aoa);
+
+        const allTotals = new Map();
+        const transportTotals = new Map();
+
+        // Group rows by master invoice number. Blank master cells inherit the most recent value.
+        const groups = [];
+        const groupMap = new Map();
+        let currentMaster = '';
+
+        for(let r = 2; r <= lastRow; r++){
+          const row = aoa[r - 1] || [];
+          const rowHasData = row.some(v => String(v ?? '').trim() !== '');
+          if(!rowHasData) continue;
+
+          const rawMaster = masterIdx >= 0 ? String(row[masterIdx] ?? '').trim() : '';
+          if(rawMaster) currentMaster = rawMaster;
+          if(!currentMaster) currentMaster = 'UNSPECIFIED';
+
+          if(!groupMap.has(currentMaster)){
+            const g = { master: currentMaster, rows: [] };
+            groupMap.set(currentMaster, g);
+            groups.push(g);
+          }
+          groupMap.get(currentMaster).rows.push(row);
+
+          const cc = (costCenterIdx >= 0) ? (row[costCenterIdx] || 'UNSPECIFIED') : 'UNSPECIFIED';
+          const ccKey = String(cc).trim() || 'UNSPECIFIED';
+
+          let totalC = null;
+          if(totalIdx >= 0) totalC = toCents(row[totalIdx]);
+          else {
+            for(const mi of moneyCols){
+              const cval = toCents(row[mi]);
+              if(cval !== null){ totalC = cval; break; }
+            }
+          }
+
+          if(totalC !== null) allTotals.set(ccKey, (allTotals.get(ccKey) || 0) + totalC);
+
+          const catalogVal = row[0];
+          const unitVal = row[2] !== undefined ? String(row[2]).trim() : '';
+          const catalogBlank = (catalogVal == null || String(catalogVal).trim() === '');
+          const unitEA = unitVal.toUpperCase() === 'EA';
+          if(catalogBlank && unitEA){
+            let transportC = totalC;
+            if(transportC === null){
+              for(const mi of moneyCols){
+                const cval = toCents(row[mi]);
+                if(cval !== null){ transportC = cval; break; }
+              }
+            }
+            if(transportC !== null) transportTotals.set(ccKey, (transportTotals.get(ccKey) || 0) + transportC);
+          }
+        }
+
+        if(groups.length === 0){ status.textContent = 'No groups found'; return; }
+        status.textContent = `Detected ${groups.length} invoice groups`;
+
+        const zip = new JSZip();
+
+        for(let gi = 0; gi < groups.length; gi++){
+          const g = groups[gi];
+          progress.textContent = `Rendering ${gi + 1}/${groups.length} — invoice ${g.master}...`;
+
+          const rowsForPdf = g.rows.map(row => {
+            const out = [];
+            for(let c = 0; c < header.length; c++){
+              const raw = row[c];
+              out.push(raw === undefined || raw === null ? '' : String(raw));
+            }
+            return out;
+          });
+
+          const safeMaster = sanitize(g.master) || `invoice_${gi + 1}`;
+          const pdfBlob = await createStyledPdf(header.map(h => h || ''), rowsForPdf, {
+            orientation: 'landscape',
+            paper: 'letter',
+            marginPt: 18,
+            baseFontSize: 10,
+            minFontSize: 6
+          });
+
+          zip.file(`RGNBillingRpt_${safeMaster}.pdf`, pdfBlob);
+          progress.textContent = `Rendered ${gi + 1}/${groups.length}.`;
+        }
+
+        const manifest = ['Generated by Billing PDF tool', '', 'Totals by Cost Center (USD):'];
+        for(const [cc, cents] of allTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
+        manifest.push('', 'Transport totals:');
+        for(const [cc, cents] of transportTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
+        zip.file('MANIFEST.txt', manifest.join('\n'));
+
+        progress.textContent = 'Creating ZIP...';
+        const zipBlob = await zip.generateAsync({ type: 'blob' }, meta => {
+          progress.textContent = `Zipping: ${Math.round(meta.percent)}%`;
+        });
+
+        const n = (fileEl.files[0] && fileEl.files[0].name && fileEl.files[0].name.toLowerCase().endsWith('.xlsx'))
+          ? fileEl.files[0].name.replace(/\.xlsx$/i, '')
+          : 'RGNBilling';
+        const zipName = `${n}_group_pdfs_vector.zip`;
+
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = zipName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+
+        status.textContent = `Done — downloaded ${zipName}.`;
+        progress.textContent = '';
+      }catch(err){
+        console.error(err);
+        status.textContent = 'Error: ' + (err && err.message ? err.message : String(err));
+        progress.textContent = '';
+      }
+    });
+  })();
   </script>
 </section>
 
-<!-- SECTION 4 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Section 4 - PDF Merging Fixed</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.4; }
+  h3 { margin: 0 0 8px; }
+  .small { color: #555; font-size: 14px; }
+  .row { display: flex; gap: 12px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  button { padding: 8px 14px; cursor: pointer; }
+  #s4_bar_wrap { margin-top: 12px; width: 100%; background: #eee; border-radius: 8px; overflow: hidden; height: 18px; }
+  #s4_bar { height: 100%; width: 0%; background: linear-gradient(90deg,#1976d2,#0d47a1); transition: width 150ms linear; }
+  #s4_status { margin-top: 10px; }
+</style>
+</head>
+<body>
+
 <section id="section4">
   <h3>Step 4 - PDF Merging</h3>
   <p class="small">Select both zip files created from steps 2 and 3, then click Create Consolidated ZIP.</p>
@@ -813,81 +929,164 @@
     <input id="s4_files" type="file" accept=".pdf,.zip" multiple />
     <button id="s4_go" disabled>Create Consolidated ZIP</button>
   </div>
-  <div style="margin-top:8px;width:100%;background:#eee;border-radius:8px;overflow:hidden;height:18px"><div id="s4_bar" style="height:100%;width:0%;background:linear-gradient(90deg,#1976d2,#0d47a1);transition:width 150ms linear"></div></div>
-  <div id="s4_status" class="status">No files loaded.</div>
+  <div id="s4_bar_wrap"><div id="s4_bar"></div></div>
+  <div id="s4_status" class="small">No files loaded.</div>
 
   <script>
   (function(){
-    const input=document.getElementById('s4_files'), go=document.getElementById('s4_go'), bar=document.getElementById('s4_bar'), status=document.getElementById('s4_status');
-    let entries=[], groups={};
-    function setProgress(p){ bar.style.width = Math.max(0,Math.min(100,p)) + '%'; }
+    const input = document.getElementById('s4_files');
+    const go = document.getElementById('s4_go');
+    const bar = document.getElementById('s4_bar');
+    const status = document.getElementById('s4_status');
 
-    function extractCore(fn){ const base = fn.replace(/^.*[\\/]/,'').replace(/\.[^.]+$/,''); const m = base.match(/^[^_]+_([^_]+)_/); return m?m[1]:null; }
-    function normalize(fn){ return fn.toLowerCase().replace(/\.[^.]+$/,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
-    function fuzzyMatch(a,b){ const na=normalize(a), nb=normalize(b); return na===nb||na.includes(nb)||nb.includes(na); }
-    function filenamesMatch(a,b){ const ca=extractCore(a), cb=extractCore(b); if(ca&&cb) return ca.toLowerCase()===cb.toLowerCase(); return fuzzyMatch(a,b); }
+    let entries = [];
+    let groups = {};
+
+    function setProgress(p){
+      bar.style.width = Math.max(0, Math.min(100, p)) + '%';
+    }
+
+    function normalize(name){
+      return String(name || '')
+        .toLowerCase()
+        .replace(/\.[^.]+$/,'')
+        .replace(/[^a-z0-9]+/g,'_')
+        .replace(/^_+|_+$/g,'');
+    }
+
+    // Pull the shared invoice/group token out of filenames like:
+    //   RGNBillingRpt_153796A033126.pdf
+    //   Invoice_153796A033126_6601672963.pdf
+    function extractCore(fn){
+      const base = String(fn || '').replace(/^.*[\/]/,'').replace(/\.[^.]+$/,'');
+      const m = base.match(/^(?:Invoice|RGNBillingRpt)_([^_\.]+)(?:_.*)?$/i);
+      if (m && m[1]) return m[1];
+      const parts = base.split('_').filter(Boolean);
+      if (parts.length >= 2) return parts[1];
+      return base || null;
+    }
+
+    function sortRole(a, b){
+      const aFilled = /filled_invoices/i.test(a.zipName) || /^invoice_/i.test(a.filename);
+      const bFilled = /filled_invoices/i.test(b.zipName) || /^invoice_/i.test(b.filename);
+      if (aFilled !== bFilled) return aFilled ? -1 : 1;
+      return a.filename.localeCompare(b.filename);
+    }
 
     function groupList(list){
-      const reps=[]; const grouped=[];
-      for(const e of list){
-        let idx=-1;
-        for(let i=0;i<reps.length;i++){ if(filenamesMatch(reps[i], e.filename)){ idx=i; break; } }
-        if(idx===-1){ reps.push(e.filename); grouped.push([e]); } else grouped[idx].push(e);
+      const out = {};
+      for (const e of list){
+        const core = extractCore(e.filename);
+        const key = (core || normalize(e.filename)).replace(/[^A-Za-z0-9_]/g,'');
+        if (!out[key]) out[key] = [];
+        out[key].push(e);
       }
-      const out={};
-      for(let i=0;i<grouped.length;i++){
-        const core = extractCore(reps[i]);
-        const key = (core||normalize(reps[i])).replace(/[^A-Za-z0-9_]/g,'');
-        out[key] = grouped[i];
+
+      // Prefer "filled" first, then vector PDFs behind it.
+      for (const k of Object.keys(out)){
+        out[k].sort(sortRole);
       }
+
       return out;
     }
 
-    input.addEventListener('change', async (e)=>{
-      entries=[]; groups={}; go.disabled=true; setProgress(0); status.textContent='Reading files...';
-      const files = Array.from(e.target.files||[]);
-      for(const f of files){
-        if(/\.zip$/i.test(f.name)){
+    input.addEventListener('change', async (e) => {
+      entries = [];
+      groups = {};
+      go.disabled = true;
+      setProgress(0);
+      status.textContent = 'Reading files...';
+
+      const files = Array.from(e.target.files || []);
+      for (const f of files){
+        if (/\.zip$/i.test(f.name)){
           const z = await JSZip.loadAsync(await f.arrayBuffer());
-          for(const k of Object.keys(z.files)){
+          for (const k of Object.keys(z.files)){
             const zf = z.files[k];
-            if(!zf.dir && /\.pdf$/i.test(zf.name)){
-              entries.push({ filename: zf.name.split('/').pop(), zipName: f.name, arrayBuffer: await zf.async('arraybuffer') });
+            if (!zf.dir && /\.pdf$/i.test(zf.name)){
+              entries.push({
+                filename: zf.name.split('/').pop(),
+                zipName: f.name,
+                arrayBuffer: await zf.async('arraybuffer')
+              });
             }
           }
-        } else if(/\.pdf$/i.test(f.name)){
-          entries.push({ filename: f.name, zipName:'', arrayBuffer: await f.arrayBuffer() });
+        } else if (/\.pdf$/i.test(f.name)){
+          entries.push({
+            filename: f.name,
+            zipName: '',
+            arrayBuffer: await f.arrayBuffer()
+          });
         }
       }
-      if(!entries.length){ status.textContent='No PDFs found.'; return; }
+
+      if (!entries.length){
+        status.textContent = 'No PDFs found.';
+        return;
+      }
+
       groups = groupList(entries);
-      status.textContent = `Ready — ${Object.keys(groups).length} group(s) detected.`;
-      setProgress(15); go.disabled=false;
+      status.textContent = `Ready — ${Object.keys(groups).length} matching invoice group(s) detected.`;
+      setProgress(15);
+      go.disabled = false;
     });
 
-    go.addEventListener('click', async ()=>{
-      go.disabled=true; input.disabled=true; setProgress(20); status.textContent='Merging PDFs...';
-      const zip = new JSZip(); const keys = Object.keys(groups).sort(); let step=0;
-      for(const key of keys){
-        const docs = groups[key].slice().sort((a,b)=> (/filled_invoices/i.test(a.zipName)?0:1) - (/filled_invoices/i.test(b.zipName)?0:1) );
+    go.addEventListener('click', async () => {
+      go.disabled = true;
+      input.disabled = true;
+      setProgress(20);
+      status.textContent = 'Merging PDFs...';
+
+      const zip = new JSZip();
+      const keys = Object.keys(groups).sort();
+      let step = 0;
+
+      for (const key of keys){
+        const docs = groups[key];
+        if (!docs.length) continue;
+
         const merged = await PDFLib.PDFDocument.create();
-        for(const d of docs){
+
+        // Filled PDF should be page 1. Group/vector PDF(s) go behind it.
+        for (const d of docs){
           const src = await PDFLib.PDFDocument.load(d.arrayBuffer);
           const pages = await merged.copyPages(src, src.getPageIndices());
-          pages.forEach(p=>merged.addPage(p));
+          pages.forEach(p => merged.addPage(p));
         }
+
         const mergedBytes = await merged.save();
         zip.file(`Invoice_${key}.pdf`, mergedBytes);
-        step++; setProgress(20 + Math.round((step/keys.length)*50));
+
+        step++;
+        setProgress(20 + Math.round((step / keys.length) * 55));
       }
-      status.textContent='Creating ZIP...';
-      const blob = await zip.generateAsync({type:'blob'}, m => setProgress(70 + Math.round(m.percent*0.3)));
-      const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='Consolidated_Billing_PDFs.zip'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      setProgress(100); status.textContent='Done.'; input.disabled=false; go.disabled=false;
+
+      status.textContent = 'Creating ZIP...';
+      const blob = await zip.generateAsync({ type: 'blob' }, m => {
+        setProgress(75 + Math.round(m.percent * 0.25));
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Consolidated_Billing_PDFs.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      setProgress(100);
+      status.textContent = 'Done.';
+      input.disabled = false;
+      go.disabled = false;
     });
   })();
   </script>
 </section>
+
+</body>
+</html>
+
 
 </body>
 </html>
