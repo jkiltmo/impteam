@@ -675,6 +675,12 @@
         if(h.includes('total') || h.includes('ext') || h.includes('amount') || h.includes('$') || h.includes('grand')) numericCol[c] = true;
       }
 
+      const totalColIndex = header.findIndex(h => String(h || '').trim().toUpperCase() === 'TOTAL');
+      const grandTotal = totalColIndex === -1 ? null : rows.reduce((sum, row) => {
+        const n = parseNumeric(row[totalColIndex]);
+        return sum + (isNaN(n) ? 0 : n);
+      }, 0);
+
       doc.setFontSize(baseFontSize);
       function measure(txt){
         try { return doc.getTextWidth(String(txt)); }
@@ -744,6 +750,22 @@
         tableWidth: 'auto',
         showHead: 'everyPage'
       });
+
+      if(grandTotal !== null){
+        const lastY = doc.lastAutoTable && typeof doc.lastAutoTable.finalY === 'number' ? doc.lastAutoTable.finalY : marginPt;
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const lineText = `Grand Total: ${grandTotal.toFixed(2)}`;
+        const lineY = lastY + 18;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        if(lineY > pageHeight - marginPt){
+          doc.addPage();
+          doc.text(lineText, left, marginPt + 10);
+        } else {
+          doc.text(lineText, left, lineY);
+        }
+      }
 
       const pdfBytes = doc.output('arraybuffer');
       return new Blob([pdfBytes], { type: 'application/pdf' });
