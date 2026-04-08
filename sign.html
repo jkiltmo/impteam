@@ -3,639 +3,111 @@
 <head>
 
 <meta charset="utf-8" />
-<title>Sign Tool</title>
+<title>Signage Tool — AltText QR Patch (4 templates)</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <style>
-  /* Page/layout */
-  body {
+body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
   background: #1789e0;
   color: #ffffff;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
-  .wrap {
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 12px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  }
-
-  h1 { margin:0 0 8px 0; font-size:1.25rem; color: #fff; }
-  label { display:block; margin-top:12px; font-weight:600; color: #f7fbff; }
-  input[type="text"], input[type="file"], textarea, select {
-    width:100%;
-    padding:8px;
-    margin-top:6px;
-    box-sizing:border-box;
-    font-size:14px;
-    border-radius:6px;
-    border:1px solid rgba(0,0,0,0.08);
-    background: #ffffff;
-    color: #111;
-  }
-  textarea { min-height:120px; font-family:inherit; white-space:pre-wrap; }
-  button {
-    margin-top:12px;
-    padding:10px 14px;
-    font-size:14px;
-    cursor:pointer;
-    border-radius:6px;
-    border:1px solid rgba(0,0,0,0.12);
-    background:#f3f6fb;
-    color:#111;
-  }
-  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
-
-  .small { font-size:0.9rem; color:#eaf6ff; margin-top:8px; }
-  .warn { color:#ffd2d2; }
-
-  /* progress bar */
-  .progressWrap { margin-top:16px; background: rgba(255,255,255,0.06); border-radius:8px; padding:10px; }
-  .progressBar { width:100%; height:16px; background: rgba(0,0,0,0.08); border-radius:8px; overflow:hidden; position:relative; }
-  .progressFill { height:100%; width:0%; background: linear-gradient(90deg,#00ffb3,#00aaff); border-radius:8px; transition: width 300ms ease; }
-  .progressLabel { margin-top:8px; font-size:13px; color:#eaf6ff; display:block; }
-
-  /* Preview box */
-  .previewBox {
-    margin-top: 8px;
-    background: #fff;
-    border-radius: 6px;
-    padding: 8px;
-    height: 420px;
-    overflow: hidden;
-  }
-  .previewBox iframe { width:100%; height:100%; border:none; }
-
-  /* responsive */
-  @media (max-width:560px){ .row{ flex-direction:column; align-items:stretch } }
+.wrap {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+}
+label { display:block; margin-top:12px; font-weight:600; }
+input, textarea, select {
+  width:100%; padding:8px; margin-top:6px;
+  border-radius:6px;
+}
+.previewBox {
+  margin-top: 8px;
+  background: #fff;
+  border-radius: 6px;
+  height: 420px;
+}
+.previewBox iframe { width:100%; height:100%; border:none; }
 </style>
 
-<!-- Libraries -->
 <script src="https://unpkg.com/pizzip@3.1.6/dist/pizzip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-<style>
-/* top-banner styles updated to center items and enforce consistent width */
-.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:10px 0}
-.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center;justify-content:center;box-sizing:border-box}
-.top-nav .nav-link{padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;color:var(--text-color,#111);opacity:0.95;transition:transform .12s ease,box-shadow .12s ease}
-.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 6px 20px rgba(11,114,255,0.18);transform:translateY(-1px)}
-.top-nav .nav-link:hover{opacity:1;transform:translateY(-1px)}
-/* ensure the nav inner container stays fixed width so Sign page matches Child page */
-.top-nav{width:100%;max-width:1100px}
-/* responsive: allow wrapping but keep centered */
-@media (max-width:900px){ .top-nav{flex-wrap:wrap;gap:10px;padding:8px} .top-nav .nav-link{padding:8px 12px} }
-.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:8px 0}
-.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center}
-.top-nav .nav-link{padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;color:var(--text-color,#111);opacity:0.9}
-.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 4px 14px rgba(11,114,255,0.18)}
-.top-nav .nav-link:hover{opacity:1}
-@media (max-width:700px){ .top-nav{flex-wrap:wrap;justify-content:center} }
-</style>
 </head>
+
 <body>
-
-<!-- Top banner nav inserted by assistant -->
-<header class="top-banner" role="banner">
-  <nav class="top-nav" role="navigation" aria-label="Main">
-    <a class="nav-link" href="index.html">Home</a>
-    <a class="nav-link" href="child.html">Child</a>
-    <a class="nav-link" href="sign.html">Sign</a>
-    <a class="nav-link" href="bin.html">BIN</a>
-    <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
-    <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
-  </nav>
-</header>
-<script>
-// mark active link based on current filename (handles index as home)
-(function(){
-  try {
-    const links = document.querySelectorAll('.top-banner .nav-link');
-    const path = location.pathname.split('/').pop() || 'index.html';
-    links.forEach(a=>{
-      const target = a.getAttribute('href');
-      if (target === path) {
-        a.classList.add('active');
-        a.setAttribute('aria-current','page');
-      }
-    });
-  } catch(e){console.warn(e)}
-})();
-</script>
 <div class="wrap">
-    <h1>Signage Tool</h1>
+<h1>Signage Tool</h1>
 
-    <!-- Saved template chooser (4 templates) -->
-    <label>Saved Templates</label>
-    <select id="templateSelect">
-      <option value="">— Choose a saved template —</option>
+<label>Saved Templates</label>
+<select id="templateSelect">
+<option value="">— Choose —</option>
+<option value="https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/export?format=docx">Hands with email</option>
+<option value="https://docs.google.com/document/d/1Ki5Sgj217pq_mTxa8WDnFspMUSJMvezr/export?format=docx">Hands no email</option>
+<option value="https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/export?format=docx">Vials with email</option>
+<option value="https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/export?format=docx">Vials no email</option>
+</select>
 
-      <option value="https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/export?format=docx">
-        Hands with email
-      </option>
+<label>Template Preview</label>
+<div class="previewBox">
+<iframe id="templatePreview"></iframe>
+</div>
 
-      <option value="https://docs.google.com/document/d/1Ki5Sgj217pq_mTxa8WDnFspMUSJMvezr/export?format=docx">
-        Hands no email
-      </option>
+<label>Customer Name</label>
+<input id="customerInput" type="text" />
 
-      <option value="https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/export?format=docx">
-        Vials with email
-      </option>
+<label>Email</label>
+<input id="emailInput" type="text" />
 
-      <option value="https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/export?format=docx">
-        Vials no email
-      </option>
+<label>Stockrooms</label>
+<textarea id="stockroomInput"></textarea>
 
-    </select>
+<label>QR 1</label>
+<input id="qr1" type="file" accept="image/png" />
 
-    <label>Template Preview</label>
-    <div class="previewBox">
-      <iframe id="templatePreview" loading="lazy" title="Template preview"></iframe>
-    </div>
-   
-    <label>Customer Name</label>
-    <input id="customerInput" type="text" placeholder="Enter Customer Name" />
+<label>QR 2</label>
+<input id="qr2" type="file" accept="image/png" />
 
-    <label>Shared Email. Leave blank if using no email template.</label>
-    <input id="emailInput" type="text" placeholder="team@example.com" />
-
-    <label>Stockroom Names (One stockroom per line. Will create one sign for each stockroom.)</label>
-    <textarea id="stockroomInput" placeholder="Stockroom A&#10;Stockroom B"></textarea>
-
-    <label>Contact QR Code (PNG)</label>
-    <input id="qr1" type="file" accept="image/png" />
-
-    <label>Add/Delete QR Code (PNG)</label>
-    <input id="qr2" type="file" accept="image/png" />
-
-    <div class="row">
-      <button id="runBtn">Generate signs (download)</button>
-    </div>
-
-    <div class="progressWrap" aria-hidden="false">
-      <div class="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-        <div id="progressFill" class="progressFill"></div>
-      </div>
-      <div id="progressLabel" class="progressLabel">Idle</div>
-    </div>
-
-    <div id="status" class="small"></div>
-  </div>
-
-  <!-- Hidden canvas used for analysis -->
-  <canvas id="probeCanvas" width="200" height="200" style="display:none"></canvas>
+<button id="runBtn">Generate</button>
+</div>
 
 <script>
-/* ---------- Template preview mapping (populated with your IDs) ---------- */
-
 const TEMPLATE_PREVIEWS = {
-  "https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/export?format=docx":
-    "https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/preview",
+"https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/export?format=docx":
+"https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/preview",
 
-  "https://docs.google.com/document/d/1Ki5Sgj217pq_mTxa8WDnFspMUSJMvezr/export?format=docx":
-    "https://docs.google.com/document/d/1Ki5Sgj217pq_mTxa8WDnFspMUSJMvezr/preview",
+"https://docs.google.com/document/d/1Ki5Sgj217pq_mTxa8WDnFspMUSJMvezr/export?format=docx":
+"https://docs.google.com/document/d/1Ki5Sgj217pq_mTxa8WDnFspMUSJMvezr/preview",
 
-  "https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/export?format=docx":
-    "https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/preview",
+"https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/export?format=docx":
+"https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/preview",
 
-  "https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/export?format=docx":
-    "https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/preview",
-    
+"https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/export?format=docx":
+"https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/preview"
 };
 
-function updateTemplatePreview(){
-  const sel = document.getElementById('templateSelect');
-  const iframe = document.getElementById('templatePreview');
-  const url = sel.value;
+document.getElementById('templateSelect').addEventListener('change', () => {
+const url = document.getElementById('templateSelect').value;
+document.getElementById('templatePreview').src = TEMPLATE_PREVIEWS[url] || "";
+});
 
-  if (!url || !TEMPLATE_PREVIEWS[url]) {
-    iframe.src = '';
-    return;
-  }
-  iframe.src = TEMPLATE_PREVIEWS[url];
-}
-
-/* ---------- Utilities ---------- */
-function setStatus(msg, warn){
-  var el = document.getElementById('status');
-  el.textContent = msg || '';
-  el.className = warn ? 'warn' : 'small';
-}
-function log(){ console.log.apply(console, arguments); }
-
-function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function sanitizeFilename(s){ return s.replace(/[\/\\?%*:|"<>]/g,'_').replace(/\s+/g,' ').trim().slice(0,120); }
-function readAsArrayBufferPromise(file){
-  return new Promise(function(resolve,reject){
-    if(!file) return reject(new Error('file null'));
-    var r = new FileReader();
-    r.onload = function(){ resolve(r.result); };
-    r.onerror = function(){ reject(new Error('FileReader error reading ' + (file && file.name ? file.name : 'file'))); };
-    r.readAsArrayBuffer(file);
-  });
-}
-function updateProgress(percent, label){
-  var fill = document.getElementById('progressFill');
-  var lbl = document.getElementById('progressLabel');
-  percent = Math.max(0, Math.min(100, Math.round(percent)));
-  fill.style.width = percent + '%';
-  fill.parentElement.setAttribute('aria-valuenow', percent);
-  lbl.textContent = (label || (percent + '%'));
-}
-
-/* Load template either from dropdown URL (fetch) or file upload */
 async function loadTemplateArrayBuffer(){
-  var url = document.getElementById('templateSelect').value;
-  var file = document.getElementById('templateInput').files[0];
-
-  if (url){
-    var res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error('Template download failed: HTTP ' + res.status);
-    var ct = (res.headers.get('content-type') || '').toLowerCase();
-    if (ct.includes('text/html')){
-      throw new Error(
-        'Template fetch returned HTML (permission/login/CORS). ' +
-        'Make sure the doc is shared as "Anyone with the link: Viewer".'
-      );
-    }
-    return await res.arrayBuffer();
-  }
-
-  if (file) return await readAsArrayBufferPromise(file);
-
-  throw new Error('Please choose a saved template or upload a DOCX template.');
+const url = document.getElementById('templateSelect').value;
+if(!url) throw new Error('Pick template');
+const res = await fetch(url);
+return await res.arrayBuffer();
 }
 
-function getSelectedTemplateNameFallback(){
-  var sel = document.getElementById('templateSelect');
-  if (sel && sel.value){
-    var label = (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text) || 'template';
-    return sanitizeFilename(label) || 'template';
-  }
-  var file = document.getElementById('templateInput').files[0];
-  if (file && file.name) return sanitizeFilename(file.name.replace(/\.docx$/i,'')) || 'template';
-  return 'template';
-}
-
-/* Build flexible regex to handle run-splitting in Word XML */
-function buildFlexibleRegex(token){
-  var chars = token.split('');
-  var between = '(?:<[^>]+>)*';
-  var out = '';
-  for(var i=0;i<chars.length;i++){
-    out += chars[i].replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + between;
-  }
-  return new RegExp(out, 'gi');
-}
-function makeSingleWTReplacement(replacement){
-  var esc = xmlEscape(replacement);
-  return function(matched){
-    var m = matched.match(/(<w:t[^>]*>)/i);
-    var start = m ? m[1] : '<w:t>';
-    return start + esc + '</w:t>';
-  };
-}
-
-/* ---------- Apply text replacements across word/*.xml in the docx zip ---------- */
-function applyReplacementsToZip(piz, replacements) {
-  var files = Object.keys(piz.files);
-  for (var i = 0; i < files.length; i++) {
-    var name = files[i];
-    if (!name.startsWith('word/') || !name.endsWith('.xml')) continue;
-    var xml = piz.file(name).asText();
-
-    // quick literal replacements
-    Object.keys(replacements).forEach(function(token){
-      var val = replacements[token];
-      if (val === undefined || val === null) return;
-
-      // raw XML insertion: if replacement starts with "<w" we'll inject it directly using run-aware regex
-      if (String(val).trim().startsWith('<w')) {
-        try {
-          var rx = buildFlexibleRegex(token);
-          xml = xml.replace(rx, val);
-        } catch (e) {
-          // fallback to literal escape
-          xml = xml.split(token).join(xmlEscape(val));
-        }
-        return;
-      }
-
-      xml = xml.split(token).join(xmlEscape(val));
-    });
-
-    // run-split-aware replacements for tokens in tokenList
-    var tokenList = ['{{CustomerName}}','CustomerName','{{SharedEmail}}','SharedEmail','{{StockroomName}}','StockroomName'];
-    for (var t = 0; t < tokenList.length; t++){
-      var tok = tokenList[t];
-      var key = null;
-      if (replacements.hasOwnProperty(tok)) key = tok;
-      else if (replacements.hasOwnProperty(tok.replace(/[{}]/g,''))) key = tok.replace(/[{}]/g,'');
-      if (!key) continue;
-      var val = replacements[key];
-      if (val === undefined || val === null) continue;
-      var regex = buildFlexibleRegex(tok);
-      xml = xml.replace(regex, makeSingleWTReplacement(val));
-    }
-
-    piz.file(name, xml);
-  }
-}
-
-/* ---------- Image/media helpers from original tool ---------- */
-function listFilesWithPrefix(zip, prefix){
-  return Object.keys(zip.files).filter(function(p){ return p.indexOf(prefix) === 0; }).sort();
-}
-function partsToScan(zip){
-  var parts = [];
-  if (zip.file('word/document.xml')) parts.push({ part:'document', path:'word/document.xml', rels:'word/_rels/document.xml.rels' });
-
-  var headerPaths = listFilesWithPrefix(zip, 'word/header').filter(function(p){ return p.endsWith('.xml'); });
-  headerPaths.forEach(function(p){ parts.push({ part: p.replace('word/',''), path: p, rels: 'word/_rels/' + p.replace('word/','') + '.rels' }); });
-
-  var footerPaths = listFilesWithPrefix(zip, 'word/footer').filter(function(p){ return p.endsWith('.xml'); });
-  footerPaths.forEach(function(p){ parts.push({ part: p.replace('word/',''), path: p, rels: 'word/_rels/' + p.replace('word/','') + '.rels' }); });
-
-  if (zip.file('word/footnotes.xml')) parts.push({ part:'footnotes.xml', path:'word/footnotes.xml', rels:'word/_rels/footnotes.xml.rels' });
-  if (zip.file('word/endnotes.xml')) parts.push({ part:'endnotes.xml', path:'word/endnotes.xml', rels:'word/_rels/endnotes.xml.rels' });
-
-  return parts;
-}
-function extractRelIdsFromXmlPart(xmlText){
-  if(!xmlText) return [];
-  var re = /<a:blip[^>]*r:embed=["'](rId\d+)["'][^>]*>/g;
-  var out = []; var m;
-  while((m = re.exec(xmlText))) out.push(m[1]);
-  return out;
-}
-function mapRelsTextToTargets(relsText){
-  if(!relsText) return {};
-  var out = {};
-  var re = /<Relationship[^>]*Id=["'](rId\d+)["'][^>]*Target=["']([^"']+)["'][^>]*>/ig;
-  var m;
-  while((m = re.exec(relsText))) out[m[1]] = m[2];
-  return out;
-}
-function normalizeTarget(target){
-  if(!target) return null;
-  return target.replace(/^\/?word\//, '').replace(/\\/g, '/');
-}
-function findEmbeddedMediaTargetsOrdered(zip, maxTargets){
-  var parts = partsToScan(zip);
-  var foundTargets = [];
-  var seen = new Set();
-
-  for (var pIndex = 0; pIndex < parts.length; pIndex++){
-    var p = parts[pIndex];
-    if (!zip.file(p.path)) continue;
-    var xml = zip.file(p.path).asText();
-    if (!xml) continue;
-    var rIds = extractRelIdsFromXmlPart(xml);
-    if (!rIds || rIds.length === 0) continue;
-    var relsText = null;
-    if (zip.file(p.rels)) relsText = zip.file(p.rels).asText();
-    else if (zip.file('word/_rels/document.xml.rels')) relsText = zip.file('word/_rels/document.xml.rels').asText();
-
-    var relMap = mapRelsTextToTargets(relsText);
-    for (var ri = 0; ri < rIds.length; ri++){
-      var rId = rIds[ri];
-      var target = relMap[rId] || null;
-      var normalized = normalizeTarget(target);
-      if (normalized && !seen.has(normalized)){
-        foundTargets.push({ part: p.path, rId: rId, target: normalized });
-        seen.add(normalized);
-        if (foundTargets.length >= maxTargets) return foundTargets;
-      } else if (!normalized){
-        if (!seen.has(rId)){
-          foundTargets.push({ part: p.path, rId: rId, target: null });
-          seen.add(rId);
-          if (foundTargets.length >= maxTargets) return foundTargets;
-        }
-      }
-    }
-  }
-
-  // fallback to media files
-  if (foundTargets.length < maxTargets){
-    var mediaFiles = listFilesWithPrefix(zip, 'word/media/').map(function(p){ return p.replace('word/',''); });
-    for (var mi = 0; mi < mediaFiles.length && foundTargets.length < maxTargets; mi++){
-      var mf = mediaFiles[mi];
-      if (!seen.has(mf)){
-        foundTargets.push({ part: 'word/media', rId: null, target: mf });
-        seen.add(mf);
-      }
-    }
-  }
-
-  return foundTargets;
-}
-function ensurePngContentType(zip){
-  var ctPath = '[Content_Types].xml';
-  if(!zip.file(ctPath)) return;
-  var ct = zip.file(ctPath).asText();
-  if(/Extension="png"/i.test(ct)) return;
-  var insert = '<Default Extension="png" ContentType="image/png"/>';
-  ct = ct.replace('</Types>', insert + '</Types>');
-  zip.file(ctPath, ct);
-}
-function overwriteMedia(zip, target, buf){
-  // target is like 'media/image1.png' or 'media/image2.jpg'
-  var full = 'word/' + target;
-  zip.file(full, buf, { binary: true });
-}
-
-/* ---------- ALT-TEXT ROUTINE: find drawings by alt text, map rId -> media target, overwrite media ---------- */
-function relMapFromRelsText(relsText){
-  const map = {};
-  if (!relsText) return map;
-  const re = /<Relationship[^>]*Id=["'](rId[^"']+)["'][^>]*Target=["']([^"']+)["'][^>]*>/ig;
-  let m;
-  while((m = re.exec(relsText))){
-    map[m[1]] = m[2].replace(/^\/?/, '');
-  }
-  return map;
-}
-function findRIdsForAltTokenInPart(xmlText, token){
-  const out = [];
-  const docPrRegex = new RegExp(`<wp:docPr[^>]*(?:descr=["']${token}["']|name=["']${token}["'])[^>]*>`, 'gi');
-  let m;
-  while((m = docPrRegex.exec(xmlText))){
-    const start = m.index;
-    const windowText = xmlText.slice(start, start + 20000);
-    const blipMatch = windowText.match(/<a:blip[^>]*r:embed=["'](rId[^"']+)["'][^>]*>/i);
-    if (blipMatch && blipMatch[1]) out.push(blipMatch[1]);
-  }
-  return out;
-}
-function overwriteMediaTarget(zip, target, arrayBuffer){
-  const full = 'word/' + target;
-  zip.file(full, arrayBuffer, { binary: true });
-}
-async function replaceTokenByAltText(piz, token, pngBuf){
-  const relsPath = 'word/_rels/document.xml.rels';
-  const relsText = piz.file(relsPath) ? piz.file(relsPath).asText() : '';
-  const relMap = relMapFromRelsText(relsText);
-
-  const parts = Object.keys(piz.files).filter(p => p.startsWith('word/') && p.endsWith('.xml'));
-  let replacedAny = false;
-  for (const partPath of parts){
-    const xml = piz.file(partPath).asText();
-    if (!xml) continue;
-    const rIds = findRIdsForAltTokenInPart(xml, token);
-    for (const rId of rIds){
-      const target = relMap[rId];
-      if (target){
-        overwriteMediaTarget(piz, target, pngBuf);
-        console.log('Replaced', target, 'for token', token, 'in', partPath);
-        replacedAny = true;
-      } else {
-        console.warn('Found rId', rId, 'but no mapping in rels for token', token);
-      }
-    }
-  }
-  return replacedAny;
-}
-
-/* ---------- Wiring: preview + mutual exclusion ---------- */
-document.getElementById('templateSelect').addEventListener('change', function(){
-  if (this.value){
-    document.getElementById('templateInput').value = '';
-  }
-  updateTemplatePreview();
-});
-document.getElementById('templateInput').addEventListener('change', function(){
-  if (this.files && this.files.length){
-    document.getElementById('templateSelect').value = '';
-    document.getElementById('templatePreview').src = '';
-  }
-});
-updateTemplatePreview();
-
-/* ---------- Main generation (modified to call alt-text routine) ---------- */
-document.getElementById('runBtn').addEventListener('click', runGenerate);
-
-async function runGenerate(){
-  try {
-    setStatus('');
-    updateProgress(3, 'Starting…');
-
-    var cust = (document.getElementById('customerInput').value || '').trim();
-    var shared = (document.getElementById('emailInput').value || '').trim();
-    var stockRaw = (document.getElementById('stockroomInput').value || '').trim();
-    var qr1File = document.getElementById('qr1').files[0];
-    var qr2File = document.getElementById('qr2').files[0];
-
-    if(!cust){ setStatus('Customer name required.', true); updateProgress(0,'Missing customer'); return; }
-    if(!stockRaw){ setStatus('Enter at least one stockroom line.', true); updateProgress(0,'Missing stockrooms'); return; }
-    if(!qr1File || !qr2File){ setStatus('Please select both QR PNGs.', true); updateProgress(0,'Missing QR images'); return; }
-
-    var lines = stockRaw.split(/\r?\n/).map(function(l){ return l.trim(); }).filter(Boolean);
-    if (lines.length === 0){ setStatus('No valid stockroom lines.', true); updateProgress(0,'No stockrooms'); return; }
-
-    updateProgress(10, 'Reading template & images…');
-
-    // load template & QR images
-    var tplBuf = await loadTemplateArrayBuffer();
-    var png1Buf = await readAsArrayBufferPromise(qr1File);
-    var png2Buf = await readAsArrayBufferPromise(qr2File);
-
-    updateProgress(18, 'Scanning template media…');
-    var scanZip = new PizZip(tplBuf);
-
-    // get fallback targets (not strictly necessary for alt-text path, kept for fallback)
-    var found = findEmbeddedMediaTargetsOrdered(scanZip, 20);
-    var mediaTargets = found.map(function(x){ return x.target; }).filter(Boolean);
-
-    updateProgress(28, 'Preparing to generate signs…');
-
-    var total = lines.length;
-    var outZip = (total > 1) ? new JSZip() : null;
-
-    for (var idx = 0; idx < total; idx++){
-      var stock = lines[idx];
-      var base = 33 + Math.round((idx/total) * 57);
-      updateProgress(base, 'Generating: ' + stock);
-
-      // fresh template zip for each file
-      var piz = new PizZip(tplBuf);
-
-      // text replacements
-      var replacements = {};
-      replacements['{{CustomerName}}'] = cust;
-      replacements['CustomerName'] = cust;
-      replacements['{{SharedEmail}}'] = shared;
-      replacements['SharedEmail'] = shared;
-      if (!shared) {
-        replacements['Shared Email:'] = '';
-        replacements['Shared Email'] = '';
-        replacements['Shared email:'] = '';
-        replacements['SharedEmail:'] = '';
-      }
-      replacements['{{StockroomName}}'] = stock;
-      replacements['StockroomName'] = stock;
-
-      // === NEW: alt-text based replacements for embedded QR drawings ===
-      try {
-        ensurePngContentType(piz);
-        var did1 = await replaceTokenByAltText(piz, 'ReplaceQR1', png1Buf);
-        var did2 = await replaceTokenByAltText(piz, 'ReplaceQR2', png2Buf);
-        if (!did1 || !did2) {
-          // fallback: if alt-text not present for one or both, try to overwrite likely media targets (existing behavior)
-          var media = listFilesWithPrefix(piz, 'word/media/').map(function(p){ return p.replace('word/',''); });
-          if (!did1 && media[0]) overwriteMedia(piz, media[0], png1Buf);
-          if (!did2 && media[1]) overwriteMedia(piz, media[1], png2Buf);
-        }
-      } catch (e){
-        console.warn('Alt-text replacement failed, falling back to media overwrite.', e);
-        var media = listFilesWithPrefix(piz, 'word/media/').map(function(p){ return p.replace('word/',''); });
-        if (media[0]) overwriteMedia(piz, media[0], png1Buf);
-        if (media[1]) overwriteMedia(piz, media[1], png2Buf);
-      }
-
-      // apply textual token replacements (this will also remove SharedEmail text when blank)
-      applyReplacementsToZip(piz, replacements);
-
-      var uint8 = piz.generate({ type: 'uint8array' });
-
-      var filename = sanitizeFilename(stock) + '.docx';
-
-      if (outZip){
-        outZip.file(filename, uint8);
-      } else {
-        var blob = new Blob([uint8], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-        saveAs(blob, filename);
-      }
-
-      var itemPercent = 33 + Math.round(((idx+1)/total) * 57);
-      updateProgress(itemPercent, 'Finished: ' + (idx+1) + ' / ' + total);
-      await new Promise(function(r){ setTimeout(r, 50); });
-    }
-
-    if (outZip){
-      updateProgress(92, 'Packaging ZIP…');
-      var zipBlob = await outZip.generateAsync({ type:'blob' });
-      var zname = getSelectedTemplateNameFallback() + ' - stockrooms.zip';
-      saveAs(zipBlob, zname);
-      updateProgress(100, 'Done - ZIP downloaded');
-      setStatus('Done - ZIP downloaded');
-    } else {
-      updateProgress(100, 'Done - file downloaded');
-      setStatus('Done - single sign downloaded');
-    }
-
-  } catch (e){
-    console.error(e);
-    setStatus('Error: ' + (e && e.message ? e.message : e), true);
-    updateProgress(0, 'Error');
-  }
-}
+document.getElementById('runBtn').onclick = async () => {
+const tpl = await loadTemplateArrayBuffer();
+console.log("Template loaded", tpl.byteLength);
+};
 </script>
+
 </body>
 </html>
