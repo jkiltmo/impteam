@@ -160,10 +160,6 @@
       <iframe id="templatePreview" loading="lazy" title="Template preview"></iframe>
     </div>
    
-    <!-- Upload template -->
-    <label>Upload DOCX Template</label>
-    <input id="templateInput" type="file" accept=".docx" />
-
     <label>Customer Name</label>
     <input id="customerInput" type="text" placeholder="Enter Customer Name" />
 
@@ -198,6 +194,7 @@
 
 <script>
 /* ---------- Template preview mapping (populated with your IDs) ---------- */
+
 const TEMPLATE_PREVIEWS = {
   "https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/export?format=docx":
     "https://docs.google.com/document/d/1jiaGXQfgBXGHl2iCED9DTgWHITVd1Apv/preview",
@@ -209,7 +206,7 @@ const TEMPLATE_PREVIEWS = {
     "https://docs.google.com/document/d/1yzuowkHSzqc5St-442thUCjm10JoTRGz/preview",
 
   "https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/export?format=docx":
-    "https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/preview"
+    "https://docs.google.com/document/d/1eTiYb1Fz_IdCcKIa8sy4lOn-h3QoiLxk/preview",
     
    "https://docs.google.com/document/d/1HNke94EbGMJ0ItNMt4-yDLerV4emIBHr/export?format=docx":
     "https://docs.google.com/document/d/1HNke94EbGMJ0ItNMt4-yDLerV4emIBHr/preview"
