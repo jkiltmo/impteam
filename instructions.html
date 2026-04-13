@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Instructions Tool</title>
+
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.6/dist/pizzip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docxtemplater@3.48.0/build/docxtemplater.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<style>
+  body {
+    font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #1789e0;
+    color: #ffffff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .section {
+    background: rgba(255,255,255,0.03);
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  }
+
+  h1, h2 {
+    color: #ffffff;
+    margin: 0 0 8px 0;
+  }
+
+  .input-area, textarea, input[type="text"], input[type="file"], select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.08);
+    background: #ffffff;
+    color: #111;
+    box-sizing: border-box;
+    font-size: 14px;
+  }
+
+  #status {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.09);
+    color: #ffffff;
+    min-height: 20px;
+  }
+  .success {
+    background: rgba(255,255,255,0.06);
+    color: #eaf6ff;
+  }
+  .error {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  .button {
+    display: inline-block;
+    background: #f3f6fb;
+    color: #111;
+    padding: 10px 20px;
+    border: 1px solid rgba(0,0,0,0.12);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    text-decoration: none;
+    text-align: center;
+    margin: 5px 0;
+  }
+  .button:hover {
+    background: #e7ecf5;
+  }
+  .button:disabled,
+  .button[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:10px 0}
+  .top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center;justify-content:center;box-sizing:border-box}
+  .top-nav .nav-link{padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;color:var(--text-color,#111);opacity:0.95;transition:transform .12s ease,box-shadow .12s ease}
+  .top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 6px 20px rgba(11,114,255,0.18);transform:translateY(-1px)}
+  .top-nav .nav-link:hover{opacity:1;transform:translateY(-1px)}
+  .top-nav{width:100%;max-width:1100px}
+  @media (max-width:900px){ .top-nav{flex-wrap:wrap;gap:10px;padding:8px} .top-nav .nav-link{padding:8px 12px} }
+  @media (max-width:700px){ .top-nav{flex-wrap:wrap;justify-content:center} }
+  .progressWrap { margin-top: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; }
+  .progressBar { width:100%; height:16px; background: rgba(0,0,0,0.08); border-radius:8px; overflow:hidden; position:relative; }
+  .progressFill { height:100%; width:0%; background: linear-gradient(90deg,#00ffb3,#00aaff); border-radius:8px; transition: width 300ms ease; }
+  .progressLabel { margin-top:8px; font-size:13px; color:#eaf6ff; display:block; }
+  .previewBox { margin-top: 8px; background: #fff; border-radius: 6px; padding: 8px; height: 420px; overflow: hidden; }
+  .previewBox iframe { width:100%; height:100%; border:none; }
+  .hint { margin-top: 8px; font-size:0.9rem; color:#eaf6ff; line-height:1.4; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+</style>
+</head>
+<body>
+
+<header class="top-banner" role="banner">
+  <nav class="top-nav" role="navigation" aria-label="Main">
+    <a class="nav-link" href="index.html">Home</a>
+    <a class="nav-link" href="child.html">Child</a>
+    <a class="nav-link" href="sign.html">Sign</a>
+    <a class="nav-link" href="bin.html">BIN</a>
+    <a class="nav-link" href="instructions.html">Instructions</a>
+    <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
+    <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
+  </nav>
+</header>
+<script>
+(function(){
+  try {
+    const links = document.querySelectorAll('.top-banner .nav-link');
+    const path = location.pathname.split('/').pop() || 'index.html';
+    links.forEach(a=>{
+      const target = a.getAttribute('href');
+      if (target === path) {
+        a.classList.add('active');
+        a.setAttribute('aria-current','page');
+      }
+    });
+  } catch(e){console.warn(e)}
+})();
+</script>
+
+<div class="section">
+  <h1>Instructions Tool</h1>
+
+  <label>Select A Template Here</label>
+  <select id="templateSelect">
+    <option value="https://docs.google.com/document/d/13DdwUrl6bWQes9760g6wCNoAGmKcaWUo/export?format=docx">Standard Site Template</option>
+  </select>
+
+  <label>Template Preview</label>
+  <div class="previewBox">
+    <iframe id="templatePreview" loading="lazy" title="Template preview"></iframe>
+  </div>
+
+  <label>Project ID</label>
+  <input id="projectIdInput" type="text" placeholder="Enter Project ID" />
+
+  <label>Customer Name</label>
+  <input id="customerNameInput" type="text" placeholder="Enter Customer Name" />
+
+  <div class="row">
+    <button id="runBtn" class="button">Download Instructions</button>
+    <button id="resetBtn" type="button" class="button">Reset</button>
+  </div>
+
+  <div class="progressWrap" aria-hidden="false">
+    <div class="progressBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div id="progressFill" class="progressFill"></div>
+    </div>
+    <div id="progressLabel" class="progressLabel">Idle</div>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script>
+const TEMPLATE_URL = 'https://docs.google.com/document/d/13DdwUrl6bWQes9760g6wCNoAGmKcaWUo/export?format=docx';
+const TEMPLATE_PREVIEW = 'https://docs.google.com/document/d/13DdwUrl6bWQes9760g6wCNoAGmKcaWUo/preview';
+
+const templateSelect = document.getElementById('templateSelect');
+const templatePreview = document.getElementById('templatePreview');
+const projectIdInput = document.getElementById('projectIdInput');
+const customerNameInput = document.getElementById('customerNameInput');
+const runBtn = document.getElementById('runBtn');
+const resetBtn = document.getElementById('resetBtn');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+const statusEl = document.getElementById('status');
+
+function setStatus(msg, warn) {
+  statusEl.textContent = msg || '';
+  statusEl.className = warn ? 'error' : 'success';
+}
+
+function updateProgress(percent, label) {
+  const n = Math.max(0, Math.min(100, Math.round(percent)));
+  progressFill.style.width = n + '%';
+  progressFill.parentElement.setAttribute('aria-valuenow', n);
+  progressLabel.textContent = label || (n + '%');
+}
+
+function sanitizeFilename(s) {
+  return String(s || '')
+    .replace(/[\\/\?%*:|"<>]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
+function updateTemplatePreview() {
+  const selected = templateSelect.value || TEMPLATE_URL;
+  templatePreview.src = selected === TEMPLATE_URL ? TEMPLATE_PREVIEW : '';
+}
+
+templateSelect.addEventListener('change', updateTemplatePreview);
+updateTemplatePreview();
+
+async function loadTemplateArrayBuffer() {
+  const selected = templateSelect.value || TEMPLATE_URL;
+  const res = await fetch(selected, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Template download failed: HTTP ${res.status}`);
+
+  const ct = (res.headers.get('content-type') || '').toLowerCase();
+  if (ct.includes('text/html')) {
+    throw new Error('Template fetch returned HTML instead of DOCX. Make sure the file is shared as “Anyone with the link: Viewer”.');
+  }
+
+  return await res.arrayBuffer();
+}
+
+async function generateFromBuffer(tplBuf, projectId, customerName) {
+  const zip = new PizZip(tplBuf);
+  const doc = new window.docxtemplater(zip, {
+    paragraphLoop: true,
+    linebreaks: true,
+    delimiters: { start: '[[', end: ']]' }
+  });
+
+  doc.setData({
+    projectid: projectId,
+    CUSTOMERNAME: customerName,
+    CustomerName: customerName
+  });
+
+  doc.render();
+
+  return doc.getZip().generate({
+    type: 'uint8array',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  });
+}
+
+async function generateDocx() {
+  const projectId = (projectIdInput.value || '').trim();
+  const customerName = (customerNameInput.value || '').trim();
+
+  if (!projectId) {
+    setStatus('Project ID is required.', true);
+    updateProgress(0, 'Missing Project ID');
+    return;
+  }
+  if (!customerName) {
+    setStatus('Customer Name is required.', true);
+    updateProgress(0, 'Missing Customer Name');
+    return;
+  }
+
+  try {
+    runBtn.disabled = true;
+    updateProgress(10, 'Downloading template…');
+    const tplBuf = await loadTemplateArrayBuffer();
+
+    updateProgress(45, 'Replacing tokens…');
+    const uint8 = await generateFromBuffer(tplBuf, projectId, customerName);
+
+    updateProgress(80, 'Building DOCX…');
+    const blob = new Blob([uint8], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    });
+
+    const filename = `${sanitizeFilename(customerName)} Site Document.docx`;
+    saveAs(blob, filename);
+
+    updateProgress(100, 'Done');
+    setStatus(`Done - downloaded ${filename}`);
+  } catch (e) {
+    console.error(e);
+    setStatus(`Error: ${e && e.message ? e.message : e}`, true);
+    updateProgress(0, 'Error');
+  } finally {
+    runBtn.disabled = false;
+  }
+}
+
+runBtn.addEventListener('click', generateDocx);
+
+resetBtn.addEventListener('click', () => {
+  projectIdInput.value = '';
+  customerNameInput.value = '';
+  templateSelect.value = '';
+  updateTemplatePreview();
+  statusEl.textContent = '';
+  statusEl.className = '';
+  updateProgress(0, 'Idle');
+});
+
+</script>
+</body>
+</html>
