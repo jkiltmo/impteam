@@ -122,8 +122,42 @@
       font-size: 12px;
     }
   </style>
+
+  <style>
+  .top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:#ffffff;box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:8px 0}
+  .top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center;justify-content:center}
+  .top-nav .nav-link{padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;color:#111;opacity:0.9}
+  .top-nav .nav-link.active{background:#0b72ff;color:#fff;box-shadow:0 4px 14px rgba(11,114,255,0.18)}
+  .top-nav .nav-link:hover{opacity:1}
+  @media (max-width:700px){ .top-nav{flex-wrap:wrap;justify-content:center} }
+  </style>
+
 </head>
 <body>
+
+  <header class="top-banner">
+   <nav class="top-nav">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="child.html">Child</a>
+      <a class="nav-link" href="sign.html">Sign</a>
+      <a class="nav-link" href="instructions.html">Site Document</a>
+      <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
+      <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
+    </nav>
+  </header>
+
+  <script>
+  (function(){
+    const links = document.querySelectorAll('.top-banner .nav-link');
+    const path = location.pathname.split('/').pop() || 'index.html';
+    links.forEach(a=>{
+      if(a.getAttribute('href') === path){
+        a.classList.add('active');
+      }
+    });
+  })();
+  </script>
+
   <h1>Billing Workflow</h1>
 
   <div class="section">
