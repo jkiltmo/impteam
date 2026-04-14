@@ -1,12 +1,17 @@
 <!doctype html>
 <html lang="en">
 <head>
-
   <meta charset="utf-8" />
-  <title>Billing Tool</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Billing Workflow</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
   <style>
-    /* --- Global page / typography (match Child Part Tool) --- */
     body {
       font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
       max-width: 1200px;
@@ -18,8 +23,7 @@
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* --- Panels / Sections --- */
-    section {
+    .section {
       background: rgba(255,255,255,0.03);
       padding: 20px;
       margin-bottom: 20px;
@@ -28,25 +32,21 @@
       border: 0;
     }
 
-    /* --- Headings --- */
-    h1, h2, h3 {
+    h1, h2 {
       color: #ffffff;
       margin: 0 0 8px 0;
     }
 
-    /* --- Copy --- */
     p { margin: 0 0 10px 0; }
 
-    /* --- Form labels --- */
     label {
       display: block;
       margin: 8px 0;
       color: #ffffff;
     }
 
-    /* --- Inputs --- */
-    input[type=file],
-    input[type=text] {
+    input[type="file"],
+    input[type="text"] {
       width: 100%;
       padding: 10px;
       border-radius: 6px;
@@ -57,7 +57,15 @@
       font-size: 14px;
     }
 
-    /* --- Buttons --- */
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .row > label { flex: 1 1 240px; }
+
     button {
       display: inline-block;
       background: #f3f6fb;
@@ -67,900 +75,872 @@
       border-radius: 6px;
       cursor: pointer;
       font-size: 14px;
+      text-decoration: none;
+      text-align: center;
       margin: 5px 0;
     }
+
     button:hover { background: #e7ecf5; }
-    button[disabled] {
+    button:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
 
-    /* --- Layout helpers --- */
-    .row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .row > label { flex: 1 1 240px; }
-
-    /* --- Status / helper text --- */
-    .status {
-      margin-top: 10px;
+    #status {
+      margin: 10px 0;
       padding: 10px;
       border-radius: 6px;
       background: rgba(255,255,255,0.09);
       color: #ffffff;
-    }
-    .small { font-size: 13px; color: rgba(255,255,255,0.9); }
-    .warning { color: #fff3cd; }
-
-    pre {
-      background: rgba(255,255,255,0.09);
-      padding: 10px;
-      border-radius: 6px;
       white-space: pre-wrap;
-      color: #ffffff;
+      line-height: 1.45;
     }
 
-    a { color: #eaf6ff; }
+    .small { font-size: 13px; color: rgba(255,255,255,0.9); }
+    .success { background: rgba(255,255,255,0.06); color: #eaf6ff; }
+    .error { background: #f8d7da; color: #721c24; }
 
-    /* --- IMPORTANT: keep generated PDFs unchanged --- */
-    #s3_render {
-      background: #ffffff !important;
-      color: #111827 !important;
+    .progressWrap {
+      margin-top: 12px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 8px;
+      overflow: hidden;
+      height: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
     }
-    #s3_render * {
-      color: #111827 !important;
-      background: transparent;
+
+    .progressBar {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #1976d2, #0d47a1);
+      transition: width 150ms linear;
     }
-</style>
 
-  <!-- Shared libraries (load once) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- jsPDF-AutoTable for nice table rendering -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
-
-<style>
-/* top-banner styles updated to center items and enforce consistent width */
-.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:10px 0}
-.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center;justify-content:center;box-sizing:border-box}
-.top-nav .nav-link{padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;color:var(--text-color,#111);opacity:0.95;transition:transform .12s ease,box-shadow .12s ease}
-.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 6px 20px rgba(11,114,255,0.18);transform:translateY(-1px)}
-.top-nav .nav-link:hover{opacity:1;transform:translateY(-1px)}
-/* ensure the nav inner container stays fixed width so Sign page matches Child page */
-.top-nav{width:100%;max-width:1100px}
-/* responsive: allow wrapping but keep centered */
-@media (max-width:900px){ .top-nav{flex-wrap:wrap;gap:10px;padding:8px} .top-nav .nav-link{padding:8px 12px} }
-.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:8px 0}
-.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center}
-.top-nav .nav-link{padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;color:var(--text-color,#111);opacity:0.9}
-.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 4px 14px rgba(11,114,255,0.18)}
-.top-nav .nav-link:hover{opacity:1}
-@media (max-width:700px){ .top-nav{flex-wrap:wrap;justify-content:center} }
-</style>
+    .footer-note {
+      margin-top: 10px;
+      color: rgba(255,255,255,0.9);
+      font-size: 12px;
+    }
+  </style>
 </head>
 <body>
+  <h1>Billing Workflow</h1>
 
-<!-- Top banner nav -->
-<header class="top-banner" role="banner">
-  <nav class="top-nav" role="navigation" aria-label="Main">
-    <a class="nav-link" href="index.html">Home</a>
-    <a class="nav-link" href="child.html">Child</a>
-    <a class="nav-link" href="sign.html">Sign</a>
-	<a class="nav-link" href="bin.html">BIN</a>
-	<a class="nav-link" href="instructions.html">Site Document</a>
-    <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
-    <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
-  </nav>
-</header>
-<script>
-// mark active link based on current filename (handles index as home)
-(function(){
-  try {
-    const links = document.querySelectorAll('.top-banner .nav-link');
-    const path = location.pathname.split('/').pop() || 'index.html';
-    links.forEach(a=>{
-      const target = a.getAttribute('href');
-      if (target === path) {
-        a.classList.add('active');
-        a.setAttribute('aria-current','page');
-      }
-    });
-  } catch(e){console.warn(e)}
-})();
-</script>
-<!-- SECTION 1  -->
-<section id="section1">
-  <h1>Step 1 - Consolidated Billing</h1>
-  <p class="small">Upload the consolidated billing report. Click Add Summary & Download and then move to Step 2.</p>
-  <label>Excel (.xlsx): <input id="s1_file" type="file" accept=".xlsx,.xls" /></label>
-  <div class="row"><button id="s1_go" disabled>Add Summary &amp; Download (auto-load to Section 2)</button></div>
-  <div id="s1_status" class="status"></div>
+  <div class="section">
+    <h2>1. Upload files</h2>
+    <p class="small">Upload the consolidated billing report and the cover page PDF template, then enter the date range.</p>
 
-  <!-- jsPDF + autoTable (required for PDF generation) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <label>
+      Consolidated Billing Report (excel)
+      <input id="excelFile" type="file" accept=".xlsx,.xls" />
+    </label>
 
-  <script>
-  (function(){
-    /* Utilities */
-    function normalizeHeader(s){ if (s==null) return ''; let t=String(s).replace(/\u00A0/g,' ').trim(); return t.replace(/\s+/g,' '); }
-    function normForCompare(s){ return String(s||'').toLowerCase().replace(/[^a-z0-9#]/g,''); }
-    function findColIndex(headerRow,name){ if (!headerRow) return -1; for(let i=0;i<headerRow.length;i++) if (normalizeHeader(headerRow[i])===normalizeHeader(name)) return i; for(let i=0;i<headerRow.length;i++) if(String(headerRow[i]).toLowerCase()===String(name).toLowerCase()) return i; const target=normForCompare(name); for(let i=0;i<headerRow.length;i++){ const h=normForCompare(headerRow[i]); if (!h) continue; if (h===target||h.includes(target)||target.includes(h)) return i; } return -1; }
-    function findAnyHeader(headerRow,cands){ for(const c of cands){ const i=findColIndex(headerRow,c); if (i!==-1) return i } return -1 }
-    function parseNumeric(v){ if (v==null||v==='') return NaN; if (typeof v==='number') return v; let s=String(v).trim(); let neg=false; if (s.startsWith('(')&&s.endsWith(')')){ neg=true; s=s.slice(1,-1); } s=s.replace(/[^0-9.\-]/g,''); if (s===''||s==='.'||s==='-') return NaN; const n=parseFloat(s); return isNaN(n)?NaN:(neg?-n:n); }
+    <label>
+      Cover Page Template (pdf)
+      <input id="pdfTemplate" type="file" accept=".pdf" />
+    </label>
 
-    const fileEl=document.getElementById('s1_file'), goBtn=document.getElementById('s1_go'), statusEl=document.getElementById('s1_status');
-    fileEl.addEventListener('change',()=>{ goBtn.disabled=!fileEl.files.length });
+    <div class="row">
+      <label>
+        Start Date
+        <input id="startDate" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" />
+      </label>
+      <label>
+        Invoice Date
+        <input id="invoiceDate" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" />
+      </label>
+    </div>
 
-function generateCleanPdf(summary, baseName) {
-  if(!Array.isArray(summary) || summary.length < 1) return;
+    <div class="row">
+      <button id="runBtn" disabled>Create Billing Reports</button>
+      <button id="clearBtn" type="button">Clear</button>
+    </div>
 
-  try {
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'landscape' });
+    <div class="progressWrap" aria-label="Progress">
+      <div id="progressBar" class="progressBar"></div>
+    </div>
 
-    const margin = 36;
-    const title = 'Billing Manifest';
-    const sourceLabel = baseName || 'Workbook';
-
-    const headerRow = [
-      'COST CENTER',
-      'MASTER INV NBR',
-      'PO NBR',
-      'TRANSPORTATION_SUBTOTAL',
-      'MERCHANDISE_SUBTOTAL',
-      'GRAND_TOTAL'
-    ];
-
-    // Convert rows to formatted arrays
-    const bodyArrays = summary.slice(1).map(row => {
-      const r = (Array.isArray(row) ? row.slice() : []).slice(0, headerRow.length);
-      while (r.length < headerRow.length) r.push('');
-
-      const t = Number(r[3] || 0);
-      const m = Number(r[4] || 0);
-      const g = Number(r[5] || (t + m));
-
-      const fmt = v =>
-        isNaN(v) ? '' :
-        v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-
-      return [
-        String(r[0] ?? ''),
-        String(r[1] ?? ''),
-        String(r[2] ?? ''),
-        fmt(t),
-        fmt(m),
-        fmt(g)
-      ];
-    });
-
-    // Calculate totals
-    const totals = bodyArrays.reduce((acc, arr) => {
-      const parseMoney = s => {
-        if (!s) return 0;
-        const cleaned = String(s).replace(/[^0-9\.\-]/g,'');
-        const n = parseFloat(cleaned);
-        return isNaN(n) ? 0 : n;
-      };
-      acc.transportation += parseMoney(arr[3]);
-      acc.merchandise += parseMoney(arr[4]);
-      acc.grand_total += parseMoney(arr[5]);
-      return acc;
-    }, { transportation: 0, merchandise: 0, grand_total: 0 });
-
-    const fmt = v =>
-      isNaN(v) ? '' :
-      v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-
-    const totalsArray = [
-      'TOTAL',
-      '',
-      '',
-      fmt(totals.transportation),
-      fmt(totals.merchandise),
-      fmt(totals.grand_total)
-    ];
-
-    const tableBody = bodyArrays.concat([totalsArray]);
-    const totalsRowIndex = tableBody.length - 1;
-
-    // ===== Header (no timestamp anymore) =====
-    pdf.setFontSize(18);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(title, margin, 60);
-
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Source: ${sourceLabel}`, margin, 78);
-
-    // ===== Table =====
-    pdf.autoTable({
-      startY: 100,
-      head: [headerRow],
-      body: tableBody,
-      styles: {
-        fontSize: 9,
-        cellPadding: 6,
-        overflow: 'linebreak',
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: 220,
-        textColor: 20,
-        fontStyle: 'bold'
-      },
-      alternateRowStyles: { fillColor: 245 },
-      columnStyles: {
-        0: { cellWidth: 120 },
-        1: { cellWidth: 120 },
-        2: { cellWidth: 100 },
-        3: { cellWidth: 120, halign: 'right' },
-        4: { cellWidth: 140, halign: 'right' },
-        5: { cellWidth: 120, halign: 'right' }
-      },
-      didParseCell: function(data) {
-        if (data.row.index === totalsRowIndex) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [230,230,230];
-        }
-      },
-      margin: { left: margin, right: margin },
-      theme: 'grid',
-      showHead: 'everyPage',
-      didDrawPage: function () {
-        const pageCount = pdf.internal.getNumberOfPages();
-        const currentPage = pdf.internal.getCurrentPageInfo().pageNumber;
-
-        pdf.setFontSize(9);
-        pdf.setFont('helvetica', 'normal');
-
-        const pageText = `${sourceLabel} — Page ${currentPage} of ${pageCount}`;
-        pdf.text(
-          pageText,
-          pdf.internal.pageSize.getWidth() - margin - pdf.getTextWidth(pageText),
-          pdf.internal.pageSize.getHeight() - 30
-        );
-      }
-    });
-
-    // ===== Updated File Name =====
-    const pdfName = (baseName || '') + 'Manifest.pdf';
-    pdf.save(pdfName);
-
-  } catch (err) {
-    console.warn('PDF generation failed', err);
-  }
-}
-
-    // ===== Existing processing & download logic (unchanged, except it calls the corrected PDF generator) =====
-    goBtn.addEventListener('click',async ()=>{
-      statusEl.textContent='Reading file...';
-      const f=fileEl.files[0]; if(!f){ statusEl.textContent='No file.'; return; }
-      try{
-        const data=await f.arrayBuffer();
-        const workbook=XLSX.read(data,{type:'array',cellDates:false,raw:false});
-        const ws=workbook.Sheets[workbook.SheetNames[0]];
-        if(!ws) throw new Error('Source worksheet not found.');
-        const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
-        if(!aoa||aoa.length<1) throw new Error('Source sheet empty.');
-
-        const rawHeader=aoa[0].map(h=>h==null?'':String(h));
-        const catalogCandidates=['CATALOG #','CATALOG','CATALOGNO','CATALOG#','CATALOG #'];
-        const unitCandidates=['UNIT','UNIT OF MEASURE','UOM','QTY'];
-        const costCenterCandidates=['COST CENTER','COST_CENTER','COSTCENTER','COST CENTRE'];
-        const totalCandidates=['TOTAL','EXT $','EXT','EXTENDED','LINE TOTAL','UNIT $','UNIT$'];
-        const poCandidates=['PO NBR','PO NBR.','PO NBR#','PO','PO#','PO NUMBER','PO NBR '];
-        const orderDateCandidates=['ORDER DATE','ORDERDATE','DATE'];
-        const fsCandidates=['FS #','FS#','FS NUMBER','FS NO'];
-
-        const catalogIdx=findAnyHeader(rawHeader,catalogCandidates);
-        const unitIdx=findAnyHeader(rawHeader,unitCandidates);
-        const costCenterIdx=findAnyHeader(rawHeader,costCenterCandidates);
-        const totalIdx=findAnyHeader(rawHeader,totalCandidates);
-        let poIdx=findAnyHeader(rawHeader,poCandidates);
-        const orderDateIdx=findAnyHeader(rawHeader,orderDateCandidates);
-        const fsIdx=findAnyHeader(rawHeader,fsCandidates);
-
-        let usedPoFallback=false;
-        if(poIdx===-1){ if(rawHeader.length>=3){ poIdx=2; usedPoFallback=true } }
-
-        const missing=[];
-        if(catalogIdx===-1) missing.push('CATALOG #');
-        if(unitIdx===-1) missing.push('UNIT / QTY');
-        if(costCenterIdx===-1) missing.push('COST CENTER');
-        if(totalIdx===-1) missing.push('TOTAL');
-        if(!usedPoFallback && poIdx===-1) missing.push('PO / PO NBR');
-        if(orderDateIdx===-1) missing.push('ORDER DATE');
-        if(fsIdx===-1) missing.push('FS #');
-        if(missing.length){ statusEl.innerHTML='Missing required column(s): '+missing.join(', '); return; }
-
-        const transportTotals=new Map(), allTotals=new Map(), masterByCC=new Map(), poByCC=new Map(), ccOrder=[], seen=new Set();
-        let skipped=0;
-        for(let r=1;r<aoa.length;r++){
-          const row=aoa[r].slice();
-          while(row.length<rawHeader.length) row.push(null);
-          const poVal=row[poIdx], orderDateVal=row[orderDateIdx], fsVal=row[fsIdx];
-          if(poVal==null||String(poVal).trim()==''||orderDateVal==null||String(orderDateVal).trim()==''||fsVal==null||String(fsVal).trim()==''){ skipped++; continue; }
-          let cc=row[costCenterIdx]; cc=(cc==null||String(cc).trim()=='')?'UNSPECIFIED':String(cc).trim();
-          if(!seen.has(cc)){ seen.add(cc); ccOrder.push(cc); const colA=row[0]; masterByCC.set(cc,(colA!=null&&String(colA).trim()!=='')?String(colA).trim():''); const colC=row[2]; poByCC.set(cc,(colC!=null&&String(colC).trim()!=='')?String(colC).trim():''); }
-          const totalVal=parseNumeric(row[totalIdx]); if(!isNaN(totalVal)) allTotals.set(cc,(allTotals.get(cc)||0)+totalVal);
-          const catalogBlank=(row[catalogIdx]==null||String(row[catalogIdx]).trim()===''); const unitVal=row[unitIdx]; const unitEA=(unitVal!=null&&String(unitVal).trim().toUpperCase()==='EA');
-          if(catalogBlank && unitEA && !isNaN(totalVal)) transportTotals.set(cc,(transportTotals.get(cc)||0)+totalVal);
-        }
-
-        const summary=[['COST CENTER','MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','GRAND_TOTAL']];
-        for(const cc of ccOrder){
-          const transport=+(transportTotals.get(cc)||0).toFixed(2);
-          const all=+(allTotals.get(cc)||0).toFixed(2);
-          const merch=+(all-transport).toFixed(2);
-          summary.push([cc, masterByCC.get(cc)||'', poByCC.get(cc)||'', transport, merch, +(transport+merch).toFixed(2)]);
-        }
-
-        const summaryName='Transportation Summary';
-        const exIdx=workbook.SheetNames.indexOf(summaryName);
-        if(exIdx!==-1){ delete workbook.Sheets[summaryName]; workbook.SheetNames.splice(exIdx,1); }
-        const wsSummary=XLSX.utils.aoa_to_sheet(summary);
-        XLSX.utils.book_append_sheet(workbook, wsSummary, summaryName);
-        const base = (f.name && f.name.toLowerCase().endsWith('.xlsx'))?f.name.replace(/\.xlsx$/i,''):(f.name||'workbook');
-        const outName = base + ' - with Transportation Summary.xlsx';
-        const wbout = XLSX.write(workbook,{bookType:'xlsx',type:'array'});
-        const blob = new Blob([wbout],{type:'application/octet-stream'});
-
-        // Download Excel
-        const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=outName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-
-        // ===== Generate cleaner PDF immediately after the Excel download =====
-        try {
-          generateCleanPdf(summary, base);
-        } catch (pdfErr) {
-          console.warn('generateCleanPdf failed', pdfErr);
-        }
-
-        // Auto-hand off into Section 2's input
-        try{
-          const fileForPdf = new File([blob], outName, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-          const dt = new DataTransfer(); dt.items.add(fileForPdf);
-          const target = document.getElementById('s2_xlsx');
-          if(target){ target.files = dt.files; target.dispatchEvent(new Event('change',{bubbles:true})); const s2st = document.getElementById('s2_status'); if(s2st) s2st.textContent = `Loaded "${outName}" from Section 1.`; target.scrollIntoView({behavior:'smooth',block:'center'}); }
-        }catch(e){
-          console.warn('handoff failed',e);
-          const s2st = document.getElementById('s2_status'); if(s2st) s2st.textContent='Auto-load failed — file downloaded to your machine.';
-        }
-	// Auto-hand off original file into Section 3
-	try {
-  	const dt3 = new DataTransfer();
- 	 dt3.items.add(f);   // original Step 1 file
- 	 const s3Input = document.getElementById('s3_file');
-  	if (s3Input) {
-  	  s3Input.files = dt3.files;
-  	  s3Input.dispatchEvent(new Event('change', { bubbles: true }));
-  	  const s3Status = document.getElementById('s3_status');
-  	  if (s3Status) {
-  	    s3Status.textContent = `Loaded "${f.name}" from Step 1.`;
-  	  }
- 	 }
-	} catch (e) {
- 	 console.warn('Step 3 auto-load failed', e);
-	}
-
-        statusEl.textContent = 'Done — downloaded: ' + outName + (skipped?(' (skipped '+skipped+' invalid rows)'):'');
-      }catch(err){ console.error(err); statusEl.textContent='Error: '+(err&&err.message?err.message:String(err)); }
-    });
-  })();
-
-  </script>
-</section>
-
-<!-- SECTION 2 -->
-<section id="section2">
-  <h2>Step 2 - PDF Coverpage Generator</h2>
-  <p class="small"> The Excel field should autopopulate with the file from above, in the PDF Template, select the Coverpage File. In the Start Date and Invoice Date fields, enter the date range that the invoices cover. Click Fill PDF(s) & Download and move to step 3.</p>
-  <label>Excel (.xlsx): <input id="s2_xlsx" type="file" accept=".xlsx,.xls" /></label>
-  <label>PDF template (.pdf): <input id="s2_pdf" type="file" accept=".pdf" /></label>
-  <div class="row">
-    <label>Start Date: <input id="s2_start" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" /></label>
-    <label>Invoice Date: <input id="s2_invoiceDate" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" /></label>
+    <div id="status">Waiting for files.</div>
+    <div class="footer-note">Final output will be one ZIP containing the generated workbook, manifest PDF, filled cover PDFs, grouped PDFs, and merged consolidated PDFs.</div>
   </div>
-  <div class="row" style="margin-top:10px"><button id="s2_fill" disabled>Fill PDF(s) &amp; Download</button></div>
-  <div id="s2_status" class="status"></div>
 
   <script>
-  (async function(){
-    const xlsxEl=document.getElementById('s2_xlsx'), pdfEl=document.getElementById('s2_pdf'), btn=document.getElementById('s2_fill'), status=document.getElementById('s2_status');
-    const startEl=document.getElementById('s2_start'), invoiceEl=document.getElementById('s2_invoiceDate');
-    let pdfBytes=null;
-    function enable(){ btn.disabled = !(xlsxEl.files.length && pdfEl.files.length); }
-    xlsxEl.addEventListener('change', enable); pdfEl.addEventListener('change', enable);
+    (function () {
+      const excelEl = document.getElementById('excelFile');
+      const pdfEl = document.getElementById('pdfTemplate');
+      const startEl = document.getElementById('startDate');
+      const invoiceEl = document.getElementById('invoiceDate');
+      const runBtn = document.getElementById('runBtn');
+      const clearBtn = document.getElementById('clearBtn');
+      const statusEl = document.getElementById('status');
+      const progressBar = document.getElementById('progressBar');
 
-    async function readTransportationSheet(file,desired='Transportation Summary'){
-      const data=await file.arrayBuffer(); const wb=XLSX.read(data,{type:'array',cellDates:true,raw:false});
-      let sheetName = desired; if(!wb.SheetNames.includes(desired)) sheetName = wb.SheetNames[0];
-      const sheet=wb.Sheets[sheetName]; const aoa=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
-      if(!aoa||aoa.length<2) throw new Error('Sheet has no data rows.');
-      return aoa.slice(1).map(r=>r.map(c => (c==null||c===undefined)?'':c));
-    }
+      const PDF_TARGETS = {
+        invoiceField: 'Invoice#',
+        poField: 'PurchaseOrder#',
+        transField: 'TransTotal$',
+        merchField: 'MerchTotal$',
+        grandField: 'GrandTotal',
+        startField: 'StartDate',
+        invoiceDateField: 'InvoiceDate'
+      };
 
-    function findField(fields,name){
-      if(!name) return null;
-      const exact = fields.find(f=>f.getName()===name); if(exact) return exact;
-      const lower = name.toLowerCase();
-      return fields.find(f=>String(f.getName()).toLowerCase()===lower || String(f.getName()).toLowerCase().includes(lower));
-    }
-    function setField(f,v){ if(!f) return false; try{ if(typeof f.setText==='function'){ f.setText(String(v)); return true;} if(typeof f.setValue==='function'){ f.setValue(String(v)); return true;} return false;}catch{return false} }
-    function safeName(v){ return String(v||'').trim().replace(/[^\w\-]/g,'_'); }
-    function fmtNumber(v){ const n=Number(String(v).replace(/[^0-9.\-]/g,''))||0; return n.toFixed(2); }
+      function setStatus(msg, kind) {
+        statusEl.className = kind === 'error' ? 'error' : kind === 'success' ? 'success' : '';
+        statusEl.textContent = msg;
+      }
 
-    btn.addEventListener('click', async ()=>{
-      status.textContent='Reading XLSX and filling PDFs...';
-      try{
-        const rows = await readTransportationSheet(xlsxEl.files[0],'Transportation Summary');
-        if(!pdfBytes) pdfBytes = await pdfEl.files[0].arrayBuffer();
+      function setProgress(p) {
+        progressBar.style.width = Math.max(0, Math.min(100, p)) + '%';
+      }
+
+      function enableRun() {
+        runBtn.disabled = !(excelEl.files.length && pdfEl.files.length);
+      }
+
+      function clearAll() {
+        excelEl.value = '';
+        pdfEl.value = '';
+        startEl.value = '';
+        invoiceEl.value = '';
+        setStatus('Waiting for files.');
+        setProgress(0);
+        enableRun();
+      }
+
+      function normalizeHeader(s) {
+        if (s == null) return '';
+        let t = String(s).replace(/\u00A0/g, ' ').trim();
+        return t.replace(/\s+/g, ' ');
+      }
+
+      function normForCompare(s) {
+        return String(s || '').toLowerCase().replace(/[^a-z0-9#]/g, '');
+      }
+
+      function findColIndex(headerRow, name) {
+        if (!headerRow) return -1;
+        for (let i = 0; i < headerRow.length; i++) {
+          if (normalizeHeader(headerRow[i]) === normalizeHeader(name)) return i;
+        }
+        for (let i = 0; i < headerRow.length; i++) {
+          if (String(headerRow[i]).toLowerCase() === String(name).toLowerCase()) return i;
+        }
+        const target = normForCompare(name);
+        for (let i = 0; i < headerRow.length; i++) {
+          const h = normForCompare(headerRow[i]);
+          if (!h) continue;
+          if (h === target || h.includes(target) || target.includes(h)) return i;
+        }
+        return -1;
+      }
+
+      function findAnyHeader(headerRow, cands) {
+        for (const c of cands) {
+          const i = findColIndex(headerRow, c);
+          if (i !== -1) return i;
+        }
+        return -1;
+      }
+
+      function parseNumeric(v) {
+        if (v == null || v === '') return NaN;
+        if (typeof v === 'number') return v;
+        let s = String(v).trim();
+        let neg = false;
+        if (s.startsWith('(') && s.endsWith(')')) {
+          neg = true;
+          s = s.slice(1, -1);
+        }
+        s = s.replace(/[^0-9.\-]/g, '');
+        if (s === '' || s === '.' || s === '-') return NaN;
+        const n = parseFloat(s);
+        return isNaN(n) ? NaN : (neg ? -n : n);
+      }
+
+      function toCents(v) {
+        const n = parseNumeric(v);
+        if (!isFinite(n) || isNaN(n)) return null;
+        return Math.round(n * 100);
+      }
+
+      function centsToStr(c) {
+        return (c / 100).toFixed(2);
+      }
+
+      function sanitize(s) {
+        if (s == null) return '';
+        let t = String(s);
+        t = t.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+        t = t.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_\-.]/g, '_').replace(/_+/g, '_');
+        return t.slice(0, 80) || '';
+      }
+
+      function fileBaseName(name) {
+        return String(name || 'workbook').replace(/\.(xlsx|xls)$/i, '');
+      }
+
+      function makeDownload(blob, name) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      async function readWorkbook(file) {
+        const data = await file.arrayBuffer();
+        return XLSX.read(data, { type: 'array', cellDates: false, raw: false });
+      }
+
+      function buildTransportationSummary(workbook) {
+        const ws = workbook.Sheets[workbook.SheetNames[0]];
+        if (!ws) throw new Error('Source worksheet not found.');
+
+        const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+        if (!aoa || aoa.length < 1) throw new Error('Source sheet is empty.');
+
+        const rawHeader = aoa[0].map(h => (h == null ? '' : String(h)));
+        const catalogCandidates = ['CATALOG #', 'CATALOG', 'CATALOGNO', 'CATALOG#'];
+        const unitCandidates = ['UNIT', 'UNIT OF MEASURE', 'UOM', 'QTY'];
+        const costCenterCandidates = ['COST CENTER', 'COST_CENTER', 'COSTCENTER', 'COST CENTRE'];
+        const totalCandidates = ['TOTAL', 'EXT $', 'EXT', 'EXTENDED', 'LINE TOTAL', 'UNIT $', 'UNIT$'];
+        const poCandidates = ['PO NBR', 'PO NBR.', 'PO NBR#', 'PO', 'PO#', 'PO NUMBER', 'PO NBR '];
+        const orderDateCandidates = ['ORDER DATE', 'ORDERDATE', 'DATE'];
+        const fsCandidates = ['FS #', 'FS#', 'FS NUMBER', 'FS NO'];
+
+        const catalogIdx = findAnyHeader(rawHeader, catalogCandidates);
+        const unitIdx = findAnyHeader(rawHeader, unitCandidates);
+        const costCenterIdx = findAnyHeader(rawHeader, costCenterCandidates);
+        const totalIdx = findAnyHeader(rawHeader, totalCandidates);
+        let poIdx = findAnyHeader(rawHeader, poCandidates);
+        const orderDateIdx = findAnyHeader(rawHeader, orderDateCandidates);
+        const fsIdx = findAnyHeader(rawHeader, fsCandidates);
+
+        let usedPoFallback = false;
+        if (poIdx === -1 && rawHeader.length >= 3) {
+          poIdx = 2;
+          usedPoFallback = true;
+        }
+
+        const missing = [];
+        if (catalogIdx === -1) missing.push('CATALOG #');
+        if (unitIdx === -1) missing.push('UNIT / QTY');
+        if (costCenterIdx === -1) missing.push('COST CENTER');
+        if (totalIdx === -1) missing.push('TOTAL');
+        if (!usedPoFallback && poIdx === -1) missing.push('PO / PO NBR');
+        if (orderDateIdx === -1) missing.push('ORDER DATE');
+        if (fsIdx === -1) missing.push('FS #');
+        if (missing.length) {
+          throw new Error('Missing required column(s): ' + missing.join(', '));
+        }
+
+        const transportTotals = new Map();
+        const allTotals = new Map();
+        const masterByCC = new Map();
+        const poByCC = new Map();
+        const ccOrder = [];
+        const seen = new Set();
+        let skipped = 0;
+
+        for (let r = 1; r < aoa.length; r++) {
+          const row = aoa[r].slice();
+          while (row.length < rawHeader.length) row.push(null);
+
+          const poVal = row[poIdx];
+          const orderDateVal = row[orderDateIdx];
+          const fsVal = row[fsIdx];
+          if (poVal == null || String(poVal).trim() === '' || orderDateVal == null || String(orderDateVal).trim() === '' || fsVal == null || String(fsVal).trim() === '') {
+            skipped++;
+            continue;
+          }
+
+          let cc = row[costCenterIdx];
+          cc = (cc == null || String(cc).trim() === '') ? 'UNSPECIFIED' : String(cc).trim();
+
+          if (!seen.has(cc)) {
+            seen.add(cc);
+            ccOrder.push(cc);
+            const colA = row[0];
+            masterByCC.set(cc, (colA != null && String(colA).trim() !== '') ? String(colA).trim() : '');
+            const colC = row[2];
+            poByCC.set(cc, (colC != null && String(colC).trim() !== '') ? String(colC).trim() : '');
+          }
+
+          const totalVal = parseNumeric(row[totalIdx]);
+          if (!isNaN(totalVal)) allTotals.set(cc, (allTotals.get(cc) || 0) + totalVal);
+
+          const catalogBlank = (row[catalogIdx] == null || String(row[catalogIdx]).trim() === '');
+          const unitVal = row[unitIdx];
+          const unitEA = (unitVal != null && String(unitVal).trim().toUpperCase() === 'EA');
+          if (catalogBlank && unitEA && !isNaN(totalVal)) {
+            transportTotals.set(cc, (transportTotals.get(cc) || 0) + totalVal);
+          }
+        }
+
+        const summary = [['COST CENTER', 'MASTER INV NBR', 'PO NBR', 'TRANSPORTATION_SUBTOTAL', 'MERCHANDISE_SUBTOTAL', 'GRAND_TOTAL']];
+        for (const cc of ccOrder) {
+          const transport = +(transportTotals.get(cc) || 0).toFixed(2);
+          const all = +(allTotals.get(cc) || 0).toFixed(2);
+          const merch = +(all - transport).toFixed(2);
+          summary.push([cc, masterByCC.get(cc) || '', poByCC.get(cc) || '', transport, merch, +(transport + merch).toFixed(2)]);
+        }
+
+        return { summary, skipped };
+      }
+
+      function createSummaryWorkbook(workbook, summary) {
+        const outWb = XLSX.read(XLSX.write(workbook, { bookType: 'xlsx', type: 'array' }), { type: 'array' });
+        const summaryName = 'Transportation Summary';
+        const existing = outWb.SheetNames.indexOf(summaryName);
+        if (existing !== -1) {
+          delete outWb.Sheets[summaryName];
+          outWb.SheetNames.splice(existing, 1);
+        }
+        const wsSummary = XLSX.utils.aoa_to_sheet(summary);
+        XLSX.utils.book_append_sheet(outWb, wsSummary, summaryName);
+        const wbout = XLSX.write(outWb, { bookType: 'xlsx', type: 'array' });
+        return { blob: new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }) };
+      }
+
+      function findField(fields, name) {
+        if (!name) return null;
+        const exact = fields.find(f => f.getName() === name);
+        if (exact) return exact;
+        const lower = name.toLowerCase();
+        return fields.find(f => String(f.getName()).toLowerCase() === lower || String(f.getName()).toLowerCase().includes(lower));
+      }
+
+      function setField(f, v) {
+        if (!f) return false;
+        try {
+          if (typeof f.setText === 'function') {
+            f.setText(String(v));
+            return true;
+          }
+          if (typeof f.setValue === 'function') {
+            f.setValue(String(v));
+            return true;
+          }
+        } catch (e) {}
+        return false;
+      }
+
+      function fmtNumber(v) {
+        const n = Number(String(v).replace(/[^0-9.\-]/g, '')) || 0;
+        return n.toFixed(2);
+      }
+
+      function generateManifestPdf(summary, baseName) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'pt', format: 'letter', orientation: 'landscape' });
+        const margin = 36;
+        const headerRow = ['COST CENTER', 'MASTER INV NBR', 'PO NBR', 'TRANSPORTATION_SUBTOTAL', 'MERCHANDISE_SUBTOTAL', 'GRAND_TOTAL'];
+
+        const bodyArrays = summary.slice(1).map(row => {
+          const t = Number(row[3] || 0);
+          const m = Number(row[4] || 0);
+          const g = Number(row[5] || (t + m));
+          const fmt = v => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+          return [String(row[0] || ''), String(row[1] || ''), String(row[2] || ''), fmt(t), fmt(m), fmt(g)];
+        });
+
+        const totals = bodyArrays.reduce((acc, arr) => {
+          const parse = s => Number(String(s).replace(/[^0-9.\-]/g, '')) || 0;
+          acc.t += parse(arr[3]);
+          acc.m += parse(arr[4]);
+          acc.g += parse(arr[5]);
+          return acc;
+        }, { t: 0, m: 0, g: 0 });
+
+        const fmt = v => v.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        bodyArrays.push(['TOTAL', '', '', fmt(totals.t), fmt(totals.m), fmt(totals.g)]);
+
+        pdf.setFontSize(18);
+        pdf.text('Billing Manifest', margin, 60);
+        pdf.setFontSize(10);
+        pdf.text(`Source: ${baseName}`, margin, 78);
+        pdf.autoTable({
+          startY: 100,
+          head: [headerRow],
+          body: bodyArrays,
+          styles: { fontSize: 9, cellPadding: 6 },
+          headStyles: { fillColor: 220, textColor: 20, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: 245 },
+          theme: 'grid'
+        });
+        return pdf.output('blob');
+      }
+
+      async function buildCoverPageZip(summaryRows, pdfBuffer, startDate, invoiceDate) {
         const zip = new JSZip();
-        const PDF_TARGETS = { invoiceField:'Invoice#', poField:'PurchaseOrder#', transField:'TransTotal$', merchField:'MerchTotal$', grandField:'GrandTotal', startField:'StartDate', invoiceDateField:'InvoiceDate' };
-        for(let i=0;i<rows.length;i++){
-          const row=rows[i]; const colA=row[0]||'', colB=row[1]||'', colC=row[2]||'', colD=row[3]||'', colE=row[4]||'', colF=row[5]||'';
-          const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
-          const form = pdfDoc.getForm(); const fields = form.getFields();
-          setField(findField(fields,PDF_TARGETS.invoiceField), colB);
-          setField(findField(fields,PDF_TARGETS.poField), colC);
-          setField(findField(fields,PDF_TARGETS.transField), fmtNumber(colD));
-          setField(findField(fields,PDF_TARGETS.merchField), fmtNumber(colE));
-          setField(findField(fields,PDF_TARGETS.grandField), fmtNumber(colF));
-          if(startEl.value) setField(findField(fields,PDF_TARGETS.startField), startEl.value);
-          if(invoiceEl.value) setField(findField(fields,PDF_TARGETS.invoiceDateField), invoiceEl.value);
-          const costCenter = safeName(colA); const master = safeName(colB);
-          if(!costCenter||!master) throw new Error('Missing CostCenter or MasterInvNbr at row '+(i+2));
-          const filename = `Invoice_${master}_${costCenter}.pdf`;
+        for (let i = 1; i < summaryRows.length; i++) {
+          const row = summaryRows[i];
+          const costCenter = row[0] || '';
+          const master = row[1] || '';
+          const po = row[2] || '';
+          const trans = row[3] || '';
+          const merch = row[4] || '';
+          const grand = row[5] || '';
+
+          const pdfDoc = await PDFLib.PDFDocument.load(pdfBuffer);
+          const form = pdfDoc.getForm();
+          const fields = form.getFields();
+
+          setField(findField(fields, PDF_TARGETS.invoiceField), master);
+          setField(findField(fields, PDF_TARGETS.poField), po);
+          setField(findField(fields, PDF_TARGETS.transField), fmtNumber(trans));
+          setField(findField(fields, PDF_TARGETS.merchField), fmtNumber(merch));
+          setField(findField(fields, PDF_TARGETS.grandField), fmtNumber(grand));
+          if (startDate) setField(findField(fields, PDF_TARGETS.startField), startDate);
+          if (invoiceDate) setField(findField(fields, PDF_TARGETS.invoiceDateField), invoiceDate);
+
           const bytes = await pdfDoc.save();
+          const filename = `Invoice_${sanitize(master)}_${sanitize(costCenter)}.pdf`;
           zip.file(filename, bytes);
         }
-        status.textContent='Packaging ZIP...';
-        const blob = await zip.generateAsync({type:'blob'});
-        const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='filled_invoices.zip'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-        status.textContent = `Done — ${rows.length} PDFs generated.`;
-      }catch(e){ console.error(e); status.textContent='Error: '+(e.message||e); }
-    });
-  })();
-  </script>
-</section>
-
-<!-- SECTION 3 -->
-<section id="section3">
-  <h3>Step 3 - Consolidated Billing PDFs</h3>
-  <p class="small"> Click Detect groups & create ZIP. Once complete move to step 4.</p>
-  <label>Excel (.xlsx): <input id="s3_file" type="file" accept=".xlsx,.xls" /></label>
-  <div class="row"><button id="s3_go" disabled>Detect groups &amp; create ZIP</button></div>
-  <div id="s3_status" class="status small"></div>
-  <div id="s3_progress" class="small"></div>
-  <div id="s3_render" style="position:fixed;left:-9999px;top:-9999px;width:1500px" aria-hidden="true"></div>
-
-  <!-- Section 3: styled jsPDF + AutoTable rendering that preserves exact text -->
-  <script>
-(function(){
-  const fileEl=document.getElementById('s3_file'), btn=document.getElementById('s3_go'), status=document.getElementById('s3_status'), progress=document.getElementById('s3_progress');
-  fileEl.addEventListener('change',()=>{ btn.disabled = !fileEl.files.length; status.textContent=''; progress.textContent=''; });
-
-  function isBlank(cell){ if(!cell) return true; const v=(cell.v===undefined||cell.v===null)?'':String(cell.v).trim(); return v==='' }
-  function cellBold(cell){ if(!cell||!cell.s) return false; try{ const f=cell.s.font||{}; if(f.bold===true) return true; if(f.fontWeight && (String(f.fontWeight).toLowerCase()==='bold' || parseInt(f.fontWeight,10)>=700)) return true; return false }catch{return false} }
-  function parseNumeric(v){ if(v==null||v==='') return NaN; if(typeof v==='number') return v; let s=String(v).trim(); let neg=false; if(s.startsWith('(')&&s.endsWith(')')){neg=true;s=s.slice(1,-1)} s=s.replace(/[^0-9.\-]/g,''); if(s===''||s==='.'||s==='-') return NaN; const n=parseFloat(s); return isNaN(n)?NaN:(neg?-n:n); }
-  function toCents(v){ const n=parseNumeric(v); if(!isFinite(n)||isNaN(n)) return null; return Math.round(n*100) }
-  function centsToStr(c){ return (c/100).toFixed(2) }
-  function sanitize(s){ if(s==null) return ''; let t=String(s); t=t.normalize('NFKD').replace(/[\u0300-\u036f]/g,''); t=t.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_\-\.]/g,'_').replace(/_+/g,'_'); return t.slice(0,80)||'' }
-
-  // Create styled PDF using jsPDF + AutoTable while preserving exact cell text
-  async function createStyledPdf(header, rows, opts = {}){
-    const { orientation = 'landscape', paper = 'letter', marginPt = 18, baseFontSize = 10, minFontSize = 6 } = opts;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation, unit: 'pt', format: paper });
-    doc.setFont('helvetica');
-
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    const left = marginPt;
-    const right = pw - marginPt;
-    const usableW = right - left;
-
-    const numCols = header.length;
-
-    // detect numeric columns visually (for right-align only, not to change content)
-    const numericCol = new Array(numCols).fill(false);
-    for (let c = 0; c < numCols; c++){
-      let numericCount = 0, totalCount = 0;
-      for (let r = 0; r < Math.min(rows.length, 80); r++){
-        const v = rows[r][c];
-        if (v === undefined || v === null || String(v).trim() === '') continue;
-        totalCount++;
-        if (!isNaN(parseNumeric(v))) numericCount++;
-      }
-      if (totalCount > 0 && (numericCount / totalCount) >= 0.6) numericCol[c] = true;
-      const h = String(header[c]||'').toLowerCase();
-      if (h.includes('total')||h.includes('ext')||h.includes('amount')||h.includes('$')||h.includes('grand')) numericCol[c] = true;
-    }
-
-    // measure natural widths using jsPDF at baseFontSize
-    doc.setFontSize(baseFontSize);
-    function measure(txt){ try { return doc.getTextWidth(String(txt)); } catch(e){ return String(txt).length * (baseFontSize * 0.5); } }
-    const maxWidths = new Array(numCols).fill(0);
-    for (let c = 0; c < numCols; c++){ maxWidths[c] = Math.max(maxWidths[c], measure(header[c]||'')); }
-    for (let r = 0; r < Math.min(rows.length, 400); r++){
-      for (let c = 0; c < numCols; c++){
-        const cell = rows[r][c] !== undefined && rows[r][c] !== null ? String(rows[r][c]) : '';
-        maxWidths[c] = Math.max(maxWidths[c], measure(cell));
-      }
-    }
-
-    const colPadding = 12; // slightly larger padding for nicer visual spacing
-    const paddedWidths = maxWidths.map(w => Math.max(30, w + colPadding));
-    const totalNatural = paddedWidths.reduce((a,b)=>a+b,0) || 1;
-    // compute horizontal scale to fit usableW
-    const hScale = Math.min(1, usableW / totalNatural);
-    // compute font size (scale down if needed)
-    const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * hScale));
-
-    // compute final column widths
-    let colWidths = paddedWidths.map(w => Math.floor(w * hScale));
-    // distribute leftover pixels
-    let assigned = colWidths.reduce((a,b)=>a+b,0);
-    let leftover = Math.round(usableW - assigned);
-    let ci = 0;
-    while (leftover > 0){
-      colWidths[ci % numCols] += 1;
-      leftover--;
-      ci++;
-    }
-
-    // Build AutoTable columns and body: AutoTable accepts head as array and body as array of arrays
-    const head = [ header.map(h => String(h||'')) ];
-    const body = rows.map(r => r.map(c => c===undefined||c===null? '': String(c)) );
-
-    // Build columnStyles object for autoTable (set widths and alignment)
-    const columnStyles = {};
-    for (let i = 0; i < numCols; i++){
-      columnStyles[i] = {
-        cellWidth: colWidths[i],
-        halign: numericCol[i] ? 'right' : 'left',
-        valign: 'middle'
-      };
-    }
-
-    // autoTable options: theme grid, header style, zebra, font size & padding
-    doc.autoTable({
-      head,
-      body,
-      startY: marginPt,
-      margin: { left: left, right: marginPt },
-      styles: {
-        font: 'helvetica',
-        fontSize: fontSize,
-        cellPadding: 4,
-        overflow: 'linebreak',
-        valign: 'middle'
-      },
-      headStyles: {
-        fillColor: [245,245,245],
-        textColor: 20,
-        fontStyle: 'bold',
-        halign: 'left'
-      },
-      alternateRowStyles: {
-        fillColor: [250,250,250]
-      },
-      theme: 'grid',
-      columnStyles,
-      tableWidth: 'auto',
-      showHead: 'everyPage',
-      didDrawPage: function (data) {
-        // nothing extra; header is handled by autoTable
-      }
-    });
-
-    const pdfBytes = doc.output('arraybuffer');
-    return new Blob([pdfBytes], { type: 'application/pdf' });
-  }
-
-  // grouping logic unchanged (keeps original detection behavior)
-  function detectMoneyCols(header, aoa, sample=30){
-    const lower = header.map(h=>String(h||'').toLowerCase());
-    const keywords=['total','ext','amount','unit $','unit$','$','tax','line total'];
-    const money=new Set();
-    for(let i=0;i<header.length;i++){ const h=lower[i]||''; for(const kw of keywords) if(h.includes(kw)){ money.add(i); break; } }
-    if(money.size===0){
-      const rows = Math.min(sample, Math.max(0, aoa.length-1));
-      for(let c=0;c<header.length;c++){
-        let num=0, tot=0;
-        for(let r=1;r<=rows;r++){ const v=(aoa[r]&&aoa[r][c]!==undefined)?aoa[r][c]:''; if(v===''||v==null) continue; tot++; const n=parseNumeric(v); if(!isNaN(n)) num++; }
-        if(tot>0 && (num/tot)>=0.6) money.add(c);
-      }
-    }
-    return money;
-  }
-
-  function findHeaderIndex(headerLower, cands){ for(const c of cands){ const lc=c.toLowerCase(); const idx = headerLower.findIndex(h => h===lc || (h && h.includes(lc))); if(idx!==-1) return idx; } return -1; }
-
-  btn.addEventListener('click', async ()=>{
-    status.textContent='Reading workbook...'; progress.textContent='';
-    const f=fileEl.files[0]; if(!f){ status.textContent='No file.'; return; }
-    try{
-      const ab = await f.arrayBuffer();
-      // read with raw:false so we get formatted text strings where possible
-      const wb = XLSX.read(ab, { type:'array', cellStyles:true, raw:false });
-      const sheet = wb.Sheets[wb.SheetNames[0]]; if(!sheet) throw new Error('Sheet missing');
-      const aoa = XLSX.utils.sheet_to_json(sheet,{header:1,defval:'', raw:false}); if(!aoa||aoa.length===0){ status.textContent='Sheet empty'; return; }
-      const header = aoa[0].map(c=>c==null?'':String(c));
-      let lastRow = aoa.length;
-      if(sheet['!ref']) try{ const rng = XLSX.utils.decode_range(sheet['!ref']); lastRow = rng.e.r + 1; }catch(e){}
-      const boundaries=[]; let sawStyle=false;
-      for(let r=2;r<=lastRow;r++){
-        const Ac = sheet['A'+r], Bc = sheet['B'+r], Cc = sheet['C'+r], Dc = sheet['D'+r], Ec = sheet['E'+r];
-        const bBlank = isBlank(Bc), cBlank=isBlank(Cc), dBlank = isBlank(Dc), eBlank=isBlank(Ec);
-        const boldA = cellBold(Ac); if(boldA) sawStyle=true;
-        const aHas = !isBlank(Ac);
-        let isBoundary=false;
-        if(boldA && bBlank && cBlank && dBlank && eBlank) isBoundary=true;
-        else if(!sawStyle && aHas && bBlank && cBlank && dBlank && eBlank) isBoundary=true;
-        if(isBoundary) boundaries.push(r);
+        return zip.generateAsync({ type: 'blob' });
       }
 
-      let groups=[];
-      if(boundaries.length>0){ let start=2; for(const br of boundaries){ const end=br; if(start<=end) groups.push({from:start,to:end}); start=end+1; } if(start<=lastRow) groups.push({from:start,to:lastRow}); }
-      else { const starts=[]; for(let r=2;r<=lastRow;r++) if(!isBlank(sheet['A'+r])) starts.push(r); if(starts.length===0){ if(lastRow>=2) groups.push({from:2,to:lastRow}); } else { for(let i=0;i<starts.length;i++){ const s=starts[i]; const e=(i+1<starts.length)?starts[i+1]-1:lastRow; groups.push({from:s,to:e}); } } }
-
-      if(groups.length===0){ status.textContent='No groups found'; return; }
-      status.textContent = sawStyle?`Detected ${groups.length} groups (bold-A rule)`:`Detected ${groups.length} groups (content fallback)`;
-
-      const moneyCols = detectMoneyCols(header, aoa);
-      const headerLower = header.map(h=>String(h||'').toLowerCase());
-      const costCenterIdx = findHeaderIndex(headerLower, ['cost center','cost_center','costcenter']);
-      const totalIdx = findHeaderIndex(headerLower, ['ext $','ext','total','line total','amount','unit $','unit$']);
-      const masterIdx = findHeaderIndex(headerLower, ['master inv nbr','master inv number','master inv','master_inv_nbr','masterinvoice','master invoice','master']);
-
-      const allTotals = new Map(), transportTotals = new Map();
-      for(let r=2;r<=lastRow;r++){
-        const row = aoa[r-1]||[]; const cc=(costCenterIdx>=0)?(row[costCenterIdx]||'UNSPECIFIED'):'UNSPECIFIED'; const ccKey=String(cc).trim()||'UNSPECIFIED';
-        let totalC = null;
-        if(totalIdx>=0) totalC = toCents(row[totalIdx]);
-        else { for(const mi of moneyCols){ const cval=toCents(row[mi]); if(cval!==null){ totalC=cval; break; } } }
-        if(totalC !== null) allTotals.set(ccKey,(allTotals.get(ccKey)||0)+totalC);
-        const catalogVal = row[0]; const unitVal = row[2]!==undefined?String(row[2]).trim():''; const catalogBlank = (catalogVal==null||String(catalogVal).trim()===''); const unitEA = unitVal.toUpperCase()==='EA';
-        if(catalogBlank && unitEA){
-          let transportC = totalC;
-          if(transportC===null){ for(const mi of moneyCols){ const cval=toCents(row[mi]); if(cval!==null){ transportC=cval; break; } } }
-          if(transportC!==null) transportTotals.set(ccKey,(transportTotals.get(ccKey)||0)+transportC);
-        }
+      function isBlank(cell) {
+        if (!cell) return true;
+        const v = (cell.v === undefined || cell.v === null) ? '' : String(cell.v).trim();
+        return v === '';
       }
 
-      const zip = new JSZip();
-      for(let gi=0;gi<groups.length;gi++){
-        const g=groups[gi];
-        progress.textContent = `Rendering ${gi+1}/${groups.length} — rows ${g.from}-${g.to}...`;
-        const firstRow = aoa[g.from-1]||[];
-        let masterVal = ''; if(masterIdx>=0) masterVal = firstRow[masterIdx]; if(!masterVal) masterVal = firstRow[0];
-        let safeMaster = sanitize(masterVal||''); if(!safeMaster) safeMaster = `rows_${g.from}-${g.to}`;
-        let costCenterVal = 'UNSPECIFIED'; if(costCenterIdx>=0){ const v = firstRow[costCenterIdx]; if(v) costCenterVal=v; }
-        let safeCC = sanitize(costCenterVal||''); if(!safeCC) safeCC='UNSPECIFIED';
-
-        // Build rows array for PDF preserving formatted strings exactly (sheet_to_json used raw:false above)
-        const rowsForPdf = [];
-        for(let r=g.from;r<=g.to;r++){
-          const row = aoa[r-1]||[];
-          const out = [];
-          for(let c=0;c<header.length;c++){
-            const raw = row[c];
-            out.push(raw===undefined||raw===null?'':String(raw));
-          }
-          rowsForPdf.push(out);
-        }
-
-        // create styled PDF that fits columns to page width
-        try{
-          const pdfBlob = await createStyledPdf(header.map(h=>h||''), rowsForPdf, { orientation:'landscape', paper:'letter', marginPt:18, baseFontSize:10, minFontSize:6 });
-          const fname = `RGNBillingRpt_${safeMaster}_${safeCC}.pdf`;
-          zip.file(fname, pdfBlob);
-        }catch(e){ console.error('PDF error',e); }
-        progress.textContent = `Rendered ${gi+1}/${groups.length}.`;
+      function cellBold(cell) {
+        if (!cell || !cell.s) return false;
+        try {
+          const f = cell.s.font || {};
+          if (f.bold === true) return true;
+          if (f.fontWeight && (String(f.fontWeight).toLowerCase() === 'bold' || parseInt(f.fontWeight, 10) >= 700)) return true;
+        } catch (e) {}
+        return false;
       }
 
-      // Build manifest and ZIP
-      const manifest = ['Generated by Billing PDF tool','']; manifest.push('Totals by Cost Center (USD):');
-      for(const [cc,cents] of allTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
-      manifest.push(''); manifest.push('Transport totals:');
-      for(const [cc,cents] of transportTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
-      zip.file('MANIFEST.txt', manifest.join('\n'));
-
-      progress.textContent='Creating ZIP...';
-      const zipBlob = await zip.generateAsync({type:'blob'}, meta => { progress.textContent = `Zipping: ${Math.round(meta.percent)}%`; });
-      const n = (fileEl.files[0]&&fileEl.files[0].name&&fileEl.files[0].name.toLowerCase().endsWith('.xlsx'))?fileEl.files[0].name.replace(/\.xlsx$/i,''):'RGNBilling';
-      const zipName = `${n}_group_pdfs_vector.zip`;
-      const url = URL.createObjectURL(zipBlob); const a=document.createElement('a'); a.href=url; a.download=zipName; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      status.textContent = `Done — downloaded ${zipName}.`; progress.textContent='';
-    }catch(err){ console.error(err); status.textContent='Error: '+(err&&err.message?err.message:String(err)); progress.textContent=''; }
-  });
-})();
-  </script>
-</section>
-
-<!-- SECTION 4 -->
-<section id="section4">
-  <h3>Step 4 - PDF Merging</h3>
-  <p class="small">Click Create Consolidated ZIP.</p>
-  <div class="row">
-    <input id="s4_files" type="file" accept=".pdf,.zip" multiple />
-    <button id="s4_go" disabled>Create Consolidated ZIP</button>
-  </div>
-  <div style="margin-top:8px;width:100%;background:#eee;border-radius:8px;overflow:hidden;height:18px"><div id="s4_bar" style="height:100%;width:0%;background:linear-gradient(90deg,#1976d2,#0d47a1);transition:width 150ms linear"></div></div>
-  <div id="s4_status" class="status">No files loaded.</div>
-
-  <script>
-  (function(){
-    const input=document.getElementById('s4_files'), go=document.getElementById('s4_go'), bar=document.getElementById('s4_bar'), status=document.getElementById('s4_status');
-    let entries=[], groups={};
-    function setProgress(p){ bar.style.width = Math.max(0,Math.min(100,p)) + '%'; }
-
-    function extractCore(fn){ const base = fn.replace(/^.*[\\/]/,'').replace(/\.[^.]+$/,''); const m = base.match(/^[^_]+_([^_]+)_/); return m?m[1]:null; }
-    function normalize(fn){ return fn.toLowerCase().replace(/\.[^.]+$/,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
-    function fuzzyMatch(a,b){ const na=normalize(a), nb=normalize(b); return na===nb||na.includes(nb)||nb.includes(na); }
-    function filenamesMatch(a,b){ const ca=extractCore(a), cb=extractCore(b); if(ca&&cb) return ca.toLowerCase()===cb.toLowerCase(); return fuzzyMatch(a,b); }
-
-    function groupList(list){
-      const reps=[]; const grouped=[];
-      for(const e of list){
-        let idx=-1;
-        for(let i=0;i<reps.length;i++){ if(filenamesMatch(reps[i], e.filename)){ idx=i; break; } }
-        if(idx===-1){ reps.push(e.filename); grouped.push([e]); } else grouped[idx].push(e);
-      }
-      const out={};
-      for(let i=0;i<grouped.length;i++){
-        const core = extractCore(reps[i]);
-        const key = (core||normalize(reps[i])).replace(/[^A-Za-z0-9_]/g,'');
-        out[key] = grouped[i];
-      }
-      return out;
-    }
-
-    input.addEventListener('change', async (e)=>{
-      entries=[]; groups={}; go.disabled=true; setProgress(0); status.textContent='Reading files...';
-      const files = Array.from(e.target.files||[]);
-      for(const f of files){
-        if(/\.zip$/i.test(f.name)){
-          const z = await JSZip.loadAsync(await f.arrayBuffer());
-          for(const k of Object.keys(z.files)){
-            const zf = z.files[k];
-            if(!zf.dir && /\.pdf$/i.test(zf.name)){
-              entries.push({ filename: zf.name.split('/').pop(), zipName: f.name, arrayBuffer: await zf.async('arraybuffer') });
+      function detectMoneyCols(header, aoa, sample = 30) {
+        const lower = header.map(h => String(h || '').toLowerCase());
+        const keywords = ['total', 'ext', 'amount', 'unit $', 'unit$', '$', 'tax', 'line total'];
+        const money = new Set();
+        for (let i = 0; i < header.length; i++) {
+          const h = lower[i] || '';
+          for (const kw of keywords) {
+            if (h.includes(kw)) {
+              money.add(i);
+              break;
             }
           }
-        } else if(/\.pdf$/i.test(f.name)){
-          entries.push({ filename: f.name, zipName:'', arrayBuffer: await f.arrayBuffer() });
         }
+        if (money.size === 0) {
+          const rows = Math.min(sample, Math.max(0, aoa.length - 1));
+          for (let c = 0; c < header.length; c++) {
+            let num = 0, tot = 0;
+            for (let r = 1; r <= rows; r++) {
+              const v = (aoa[r] && aoa[r][c] !== undefined) ? aoa[r][c] : '';
+              if (v === '' || v == null) continue;
+              tot++;
+              const n = parseNumeric(v);
+              if (!isNaN(n)) num++;
+            }
+            if (tot > 0 && (num / tot) >= 0.6) money.add(c);
+          }
+        }
+        return money;
       }
-      if(!entries.length){ status.textContent='No PDFs found.'; return; }
-      groups = groupList(entries);
-      status.textContent = `Ready — ${Object.keys(groups).length} group(s) detected.`;
-      setProgress(15); go.disabled=false;
-    });
 
-    go.addEventListener('click', async ()=>{
-      go.disabled=true; input.disabled=true; setProgress(20); status.textContent='Merging PDFs...';
-      const zip = new JSZip(); const keys = Object.keys(groups).sort(); let step=0;
-      for(const key of keys){
-        const docs = groups[key].slice().sort((a,b)=> (/filled_invoices/i.test(a.zipName)?0:1) - (/filled_invoices/i.test(b.zipName)?0:1) );
-        const merged = await PDFLib.PDFDocument.create();
-        for(const d of docs){
-          const src = await PDFLib.PDFDocument.load(d.arrayBuffer);
-          const pages = await merged.copyPages(src, src.getPageIndices());
-          pages.forEach(p=>merged.addPage(p));
+      function findHeaderIndex(headerLower, cands) {
+        for (const c of cands) {
+          const lc = c.toLowerCase();
+          const idx = headerLower.findIndex(h => h === lc || (h && h.includes(lc)));
+          if (idx !== -1) return idx;
         }
-        const mergedBytes = await merged.save();
-        zip.file(`Invoice_${key}.pdf`, mergedBytes);
-        step++; setProgress(20 + Math.round((step/keys.length)*50));
+        return -1;
       }
-      status.textContent='Creating ZIP...';
-      const blob = await zip.generateAsync({type:'blob'}, m => setProgress(70 + Math.round(m.percent*0.3)));
-      const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='Consolidated_Billing_PDFs.zip'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      setProgress(100); status.textContent='Done.'; input.disabled=false; go.disabled=false;
-    });
-  })();
+
+      async function createStyledPdf(header, rows, opts = {}) {
+        const { orientation = 'landscape', paper = 'letter', marginPt = 18, baseFontSize = 10, minFontSize = 6 } = opts;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation, unit: 'pt', format: paper });
+        doc.setFont('helvetica');
+
+        const pw = doc.internal.pageSize.getWidth();
+        const usableW = pw - (marginPt * 2);
+        const numCols = header.length;
+        const numericCol = new Array(numCols).fill(false);
+
+        for (let c = 0; c < numCols; c++) {
+          let numericCount = 0, totalCount = 0;
+          for (let r = 0; r < Math.min(rows.length, 80); r++) {
+            const v = rows[r][c];
+            if (v === undefined || v === null || String(v).trim() === '') continue;
+            totalCount++;
+            if (!isNaN(parseNumeric(v))) numericCount++;
+          }
+          if (totalCount > 0 && (numericCount / totalCount) >= 0.6) numericCol[c] = true;
+          const h = String(header[c] || '').toLowerCase();
+          if (h.includes('total') || h.includes('ext') || h.includes('amount') || h.includes('$') || h.includes('grand')) numericCol[c] = true;
+        }
+
+        doc.setFontSize(baseFontSize);
+        function measure(txt) {
+          try { return doc.getTextWidth(String(txt)); }
+          catch (e) { return String(txt).length * (baseFontSize * 0.5); }
+        }
+
+        const maxWidths = new Array(numCols).fill(0);
+        for (let c = 0; c < numCols; c++) maxWidths[c] = Math.max(maxWidths[c], measure(header[c] || ''));
+        for (let r = 0; r < Math.min(rows.length, 400); r++) {
+          for (let c = 0; c < numCols; c++) {
+            const cell = rows[r][c] !== undefined && rows[r][c] !== null ? String(rows[r][c]) : '';
+            maxWidths[c] = Math.max(maxWidths[c], measure(cell));
+          }
+        }
+
+        const paddedWidths = maxWidths.map(w => Math.max(30, w + 12));
+        const totalNatural = paddedWidths.reduce((a, b) => a + b, 0) || 1;
+        const hScale = Math.min(1, usableW / totalNatural);
+        const fontSize = Math.max(minFontSize, Math.floor(baseFontSize * hScale));
+
+        let colWidths = paddedWidths.map(w => Math.floor(w * hScale));
+        let assigned = colWidths.reduce((a, b) => a + b, 0);
+        let leftover = Math.round(usableW - assigned);
+        let ci = 0;
+        while (leftover > 0) {
+          colWidths[ci % numCols] += 1;
+          leftover--;
+          ci++;
+        }
+
+        const head = [header.map(h => String(h || ''))];
+        const body = rows.map(r => r.map(c => c === undefined || c === null ? '' : String(c)));
+        const columnStyles = {};
+        for (let i = 0; i < numCols; i++) {
+          columnStyles[i] = { cellWidth: colWidths[i], halign: numericCol[i] ? 'right' : 'left', valign: 'middle' };
+        }
+
+        doc.autoTable({
+          head,
+          body,
+          startY: marginPt,
+          margin: { left: marginPt, right: marginPt },
+          styles: {
+            font: 'helvetica',
+            fontSize,
+            cellPadding: 4,
+            overflow: 'linebreak',
+            valign: 'middle'
+          },
+          headStyles: {
+            fillColor: [245, 245, 245],
+            textColor: 20,
+            fontStyle: 'bold',
+            halign: 'left'
+          },
+          alternateRowStyles: { fillColor: [250, 250, 250] },
+          theme: 'grid',
+          columnStyles,
+          tableWidth: 'auto',
+          showHead: 'everyPage'
+        });
+
+        const pdfBytes = doc.output('arraybuffer');
+        return new Blob([pdfBytes], { type: 'application/pdf' });
+      }
+
+      async function buildGroupPdfZip(workbook) {
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!sheet) throw new Error('Sheet missing.');
+        const aoa = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+        if (!aoa || aoa.length === 0) throw new Error('Sheet empty.');
+
+        const header = aoa[0].map(c => c == null ? '' : String(c));
+        let lastRow = aoa.length;
+        if (sheet['!ref']) {
+          try {
+            const rng = XLSX.utils.decode_range(sheet['!ref']);
+            lastRow = rng.e.r + 1;
+          } catch (e) {}
+        }
+
+        const boundaries = [];
+        let sawStyle = false;
+        for (let r = 2; r <= lastRow; r++) {
+          const Ac = sheet['A' + r], Bc = sheet['B' + r], Cc = sheet['C' + r], Dc = sheet['D' + r], Ec = sheet['E' + r];
+          const bBlank = isBlank(Bc), cBlank = isBlank(Cc), dBlank = isBlank(Dc), eBlank = isBlank(Ec);
+          const boldA = cellBold(Ac);
+          if (boldA) sawStyle = true;
+          const aHas = !isBlank(Ac);
+          let isBoundary = false;
+          if (boldA && bBlank && cBlank && dBlank && eBlank) isBoundary = true;
+          else if (!sawStyle && aHas && bBlank && cBlank && dBlank && eBlank) isBoundary = true;
+          if (isBoundary) boundaries.push(r);
+        }
+
+        const groups = [];
+        if (boundaries.length > 0) {
+          let start = 2;
+          for (const br of boundaries) {
+            const end = br;
+            if (start <= end) groups.push({ from: start, to: end });
+            start = end + 1;
+          }
+          if (start <= lastRow) groups.push({ from: start, to: lastRow });
+        } else {
+          const starts = [];
+          for (let r = 2; r <= lastRow; r++) if (!isBlank(sheet['A' + r])) starts.push(r);
+          if (starts.length === 0) {
+            if (lastRow >= 2) groups.push({ from: 2, to: lastRow });
+          } else {
+            for (let i = 0; i < starts.length; i++) {
+              const s = starts[i];
+              const e = (i + 1 < starts.length) ? starts[i + 1] - 1 : lastRow;
+              groups.push({ from: s, to: e });
+            }
+          }
+        }
+
+        if (groups.length === 0) throw new Error('No groups found.');
+
+        const moneyCols = detectMoneyCols(header, aoa);
+        const headerLower = header.map(h => String(h || '').toLowerCase());
+        const costCenterIdx = findHeaderIndex(headerLower, ['cost center', 'cost_center', 'costcenter']);
+        const totalIdx = findHeaderIndex(headerLower, ['ext $', 'ext', 'total', 'line total', 'amount', 'unit $', 'unit$']);
+        const masterIdx = findHeaderIndex(headerLower, ['master inv nbr', 'master inv number', 'master inv', 'master_inv_nbr', 'masterinvoice', 'master invoice', 'master']);
+
+        const allTotals = new Map();
+        const transportTotals = new Map();
+        for (let r = 2; r <= lastRow; r++) {
+          const row = aoa[r - 1] || [];
+          const cc = (costCenterIdx >= 0) ? (row[costCenterIdx] || 'UNSPECIFIED') : 'UNSPECIFIED';
+          const ccKey = String(cc).trim() || 'UNSPECIFIED';
+
+          let totalC = null;
+          if (totalIdx >= 0) totalC = toCents(row[totalIdx]);
+          else {
+            for (const mi of moneyCols) {
+              const cval = toCents(row[mi]);
+              if (cval !== null) { totalC = cval; break; }
+            }
+          }
+          if (totalC !== null) allTotals.set(ccKey, (allTotals.get(ccKey) || 0) + totalC);
+
+          const catalogVal = row[0];
+          const unitVal = row[2] !== undefined ? String(row[2]).trim() : '';
+          const catalogBlank = (catalogVal == null || String(catalogVal).trim() === '');
+          const unitEA = unitVal.toUpperCase() === 'EA';
+          if (catalogBlank && unitEA) {
+            let transportC = totalC;
+            if (transportC === null) {
+              for (const mi of moneyCols) {
+                const cval = toCents(row[mi]);
+                if (cval !== null) { transportC = cval; break; }
+              }
+            }
+            if (transportC !== null) transportTotals.set(ccKey, (transportTotals.get(ccKey) || 0) + transportC);
+          }
+        }
+
+        const zip = new JSZip();
+        const pdfs = [];
+
+        for (let gi = 0; gi < groups.length; gi++) {
+          const g = groups[gi];
+          setStatus(`Building grouped PDFs (${gi + 1}/${groups.length})...`);
+          setProgress(35 + Math.round((gi / Math.max(1, groups.length)) * 30));
+
+          const firstRow = aoa[g.from - 1] || [];
+          let masterVal = '';
+          if (masterIdx >= 0) masterVal = firstRow[masterIdx];
+          if (!masterVal) masterVal = firstRow[0];
+          let safeMaster = sanitize(masterVal || '');
+          if (!safeMaster) safeMaster = `rows_${g.from}-${g.to}`;
+
+          let costCenterVal = 'UNSPECIFIED';
+          if (costCenterIdx >= 0) {
+            const v = firstRow[costCenterIdx];
+            if (v) costCenterVal = v;
+          }
+          let safeCC = sanitize(costCenterVal || '');
+          if (!safeCC) safeCC = 'UNSPECIFIED';
+
+          const rowsForPdf = [];
+          for (let r = g.from; r <= g.to; r++) {
+            const row = aoa[r - 1] || [];
+            const out = [];
+            for (let c = 0; c < header.length; c++) {
+              const raw = row[c];
+              out.push(raw === undefined || raw === null ? '' : String(raw));
+            }
+            rowsForPdf.push(out);
+          }
+
+          const pdfBlob = await createStyledPdf(header.map(h => h || ''), rowsForPdf, {
+            orientation: 'landscape',
+            paper: 'letter',
+            marginPt: 18,
+            baseFontSize: 10,
+            minFontSize: 6
+          });
+          const fname = `RGNBillingRpt_${safeMaster}_${safeCC}.pdf`;
+          zip.file(fname, pdfBlob);
+          pdfs.push({ filename: fname, blob: pdfBlob });
+        }
+
+        const manifest = ['Generated by Billing Workflow', ''];
+        manifest.push('Totals by Cost Center (USD):');
+        for (const [cc, cents] of allTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
+        manifest.push('');
+        manifest.push('Transport totals:');
+        for (const [cc, cents] of transportTotals.entries()) manifest.push(`${cc}: ${centsToStr(cents)}`);
+        zip.file('MANIFEST.txt', manifest.join('\n'));
+
+        const blob = await zip.generateAsync({ type: 'blob' });
+        return { blob, pdfs };
+      }
+
+      async function mergePdfsByCore(coverPdfs, groupPdfs) {
+        const all = [...coverPdfs, ...groupPdfs];
+        const grouped = new Map();
+
+        function extractCore(fn) {
+          const base = fn.replace(/^.*[\\/]/, '').replace(/\.[^.]+$/, '');
+          const m = base.match(/^[^_]+_([^_]+)_/);
+          return m ? m[1] : null;
+        }
+
+        function normalize(fn) {
+          return fn.toLowerCase().replace(/\.[^.]+$/, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        }
+
+        function fuzzyMatch(a, b) {
+          const na = normalize(a), nb = normalize(b);
+          return na === nb || na.includes(nb) || nb.includes(na);
+        }
+
+        function filenamesMatch(a, b) {
+          const ca = extractCore(a), cb = extractCore(b);
+          if (ca && cb) return ca.toLowerCase() === cb.toLowerCase();
+          return fuzzyMatch(a, b);
+        }
+
+        for (const e of all) {
+          let key = null;
+          for (const existing of grouped.keys()) {
+            if (filenamesMatch(existing, e.filename)) {
+              key = existing;
+              break;
+            }
+          }
+          if (!key) key = extractCore(e.filename) || normalize(e.filename);
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key).push(e);
+        }
+
+        const zip = new JSZip();
+        const keys = Array.from(grouped.keys()).sort();
+        let mergedCount = 0;
+
+        for (const key of keys) {
+          const docs = grouped.get(key).slice().sort((a, b) => (/filled_invoices/i.test(a.filename) ? 0 : 1) - (/filled_invoices/i.test(b.filename) ? 0 : 1));
+          const merged = await PDFLib.PDFDocument.create();
+          for (const d of docs) {
+            const src = await PDFLib.PDFDocument.load(await d.blob.arrayBuffer());
+            const pages = await merged.copyPages(src, src.getPageIndices());
+            pages.forEach(p => merged.addPage(p));
+          }
+          const bytes = await merged.save();
+          zip.file(`Invoice_${key}.pdf`, bytes);
+          mergedCount++;
+        }
+
+        const mergedBlob = await zip.generateAsync({ type: 'blob' });
+        return { blob: mergedBlob, mergedCount };
+      }
+
+      async function runWorkflow() {
+        if (!excelEl.files.length || !pdfEl.files.length) return;
+
+        const excelFile = excelEl.files[0];
+        const templateFile = pdfEl.files[0];
+        const startDate = startEl.value.trim();
+        const invoiceDate = invoiceEl.value.trim();
+
+        runBtn.disabled = true;
+        setProgress(5);
+        setStatus('Reading workbook...');
+
+        try {
+          const workbook = await readWorkbook(excelFile);
+          const baseName = fileBaseName(excelFile.name);
+
+          setStatus('Building transportation summary...');
+          const step1 = buildTransportationSummary(workbook);
+          setProgress(16);
+
+          const { blob: summaryBlob } = createSummaryWorkbook(workbook, step1.summary);
+          const summaryName = `${baseName} - with Transportation Summary.xlsx`;
+          const manifestPdfBlob = generateManifestPdf(step1.summary, baseName);
+          const manifestPdfName = `${baseName}_Manifest.pdf`;
+          setProgress(24);
+
+          setStatus('Filling cover page PDFs...');
+          const templateBytes = await templateFile.arrayBuffer();
+          const coverZipBlob = await buildCoverPageZip(step1.summary, templateBytes, startDate, invoiceDate);
+          const coverZipName = 'filled_invoices.zip';
+          setProgress(45);
+
+          setStatus('Building grouped billing PDFs...');
+          const step3 = await buildGroupPdfZip(workbook);
+          const groupZipName = `${baseName}_group_pdfs_vector.zip`;
+          setProgress(70);
+
+          setStatus('Merging PDFs...');
+          const coverEntries = [];
+          {
+            const zip = await JSZip.loadAsync(coverZipBlob);
+            const files = Object.keys(zip.files).filter(k => !zip.files[k].dir && /\.pdf$/i.test(k));
+            for (const k of files) {
+              coverEntries.push({ filename: k.split('/').pop(), blob: new Blob([await zip.files[k].async('arraybuffer')], { type: 'application/pdf' }) });
+            }
+          }
+
+          const groupEntries = step3.pdfs.map(p => ({ filename: p.filename, blob: p.blob }));
+          const merged = await mergePdfsByCore(coverEntries, groupEntries);
+          const finalMergedName = 'Consolidated_Billing_PDFs.zip';
+          setProgress(88);
+
+          setStatus('Packaging final ZIP...');
+          const finalZip = new JSZip();
+          finalZip.file(summaryName, summaryBlob);
+          finalZip.file(manifestPdfName, manifestPdfBlob);
+          finalZip.file(coverZipName, coverZipBlob);
+          finalZip.file(groupZipName, step3.blob);
+          finalZip.file(finalMergedName, merged.blob);
+
+          const finalBlob = await finalZip.generateAsync({ type: 'blob' });
+          const finalName = `${baseName}_billing_workflow_output.zip`;
+          makeDownload(finalBlob, finalName);
+          setProgress(100);
+          setStatus(`Done. Downloaded ${finalName}`, 'success');
+        } catch (err) {
+          console.error(err);
+          setProgress(0);
+          setStatus('Error: ' + (err && err.message ? err.message : String(err)), 'error');
+        } finally {
+          runBtn.disabled = false;
+        }
+      }
+
+      excelEl.addEventListener('change', enableRun);
+      pdfEl.addEventListener('change', enableRun);
+      runBtn.addEventListener('click', runWorkflow);
+      clearBtn.addEventListener('click', clearAll);
+
+      clearAll();
+    })();
   </script>
-</section>
-
-
-<!-- AUTO-HANDOFF SCRIPT: places Step2 and Step3 zips into Step4 input when available -->
-<script>
-(function(){
-  // Utility to set Step4 files
-  function setStep4Files(filesArray){
-    const dt = new DataTransfer();
-    filesArray.forEach(f=>dt.items.add(f));
-    const s4 = document.getElementById('s4_files');
-    const s4Status = document.getElementById('s4_status');
-    if (!s4) {
-      console.warn('s4_files input not found');
-      if (s4Status) s4Status.textContent = 'Auto-load failed — Step 4 input not found.';
-      return;
-    }
-    s4.files = dt.files;
-    s4.dispatchEvent(new Event('change',{bubbles:true}));
-    if (s4Status) s4Status.textContent = 'Auto-loaded to Step 4: ' + Array.from(dt.files).map(f=>f.name).join(', ');
-  }
-
-  // Public API: call window.__autoHandOffStepZip({blob, name})
-  window.__autoHandOffStepZip = function(obj){
-    if (!obj || !obj.blob) return;
-    try {
-      const file = new File([obj.blob], obj.name || 'step.zip', {type:'application/zip'});
-      // Always add step2 file if present in arguments; if there is already a step2 in Step4, preserve it
-      const existing = document.getElementById('s4_files') && document.getElementById('s4_files').files;
-      const files = [];
-      if (existing && existing.length) {
-        // preserve existing
-        for (let i=0;i<existing.length;i++) files.push(existing[i]);
-      }
-      files.push(file);
-      setStep4Files(files);
-      // Also store globally for later
-      if (obj.isStep3) {
-        window.__lastStep3Zip = { blob: obj.blob, name: obj.name || 'step3.zip' };
-      } else if (obj.isStep2) {
-        window.__lastStep2Zip = { blob: obj.blob, name: obj.name || 'step2.zip' };
-      }
-    } catch(e){
-      console.error('auto handoff failed', e);
-    }
-  };
-
-  // Convenience: if the page has global events after creating zips, authors can dispatch CustomEvent 'madeZip' with detail {blob,name,step}
-  document.addEventListener('madeZip', function(e){
-    try {
-      const d = e.detail || {};
-      if (d && d.blob) {
-        window.__autoHandOffStepZip({ blob: d.blob, name: d.name, isStep3: d.step===3, isStep2: d.step===2 });
-      }
-    } catch(err){ console.error(err); }
-  });
-
-  // If author cannot modify original code to call these, we provide a fallback: intercept clicks on anchors with download attribute and capture blob URLs
-  // We'll monkey-patch URL.createObjectURL to catch blob objects when code calls it to generate downloads.
-  (function(){
-    const orig = URL.createObjectURL;
-    URL.createObjectURL = function(obj){
-      try {
-        if (obj && obj instanceof Blob) {
-          // store temporarily
-          window.__lastCreatedObjectURL = { blob: obj, time: Date.now() };
-        }
-      } catch(e){}
-      return orig.call(this, obj);
-    };
-    // Also provide a small cleaner to turn the last created blob into a handoff after a short delay if user triggers download
-    document.addEventListener('click', function(ev){
-      // look for anchor with download attribute
-      const a = ev.target.closest && ev.target.closest('a[download]');
-      if (!a) return;
-      setTimeout(function(){
-        const last = window.__lastCreatedObjectURL;
-        if (last && (Date.now()-last.time)<5000){
-          // guess name from anchor download attribute
-          const name = a.getAttribute('download') || 'download.zip';
-          // decide which step based on name heuristics
-          const isStep3 = /group_pdfs|group/i.test(name);
-          const isStep2 = /filled|invoice/i.test(name);
-          window.__autoHandOffStepZip({ blob: last.blob, name: name, isStep3: isStep3, isStep2: isStep2 });
-        }
-      }, 300);
-    }, true);
-  })();
-
-  // finished init
-  console.log('Auto-handoff helper installed. You can dispatch: document.dispatchEvent(new CustomEvent(\"madeZip\",{detail:{blob:ZIP_BLOB,name:\"name.zip\",step:2}}));');
-})();
-</script>
-
 </body>
 </html>
