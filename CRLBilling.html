@@ -212,6 +212,8 @@
       const catalogCandidates=['CATALOG #','CATALOG','CATALOGNO','CATALOG#','CATALOG #'];
       const unitCandidates=['UNIT','UNIT OF MEASURE','UOM','QTY'];
       const totalCandidates=['TOTAL','EXT $','EXT','EXTENDED','LINE TOTAL','UNIT $','UNIT$'];
+      const extCandidates=['EXT $','EXT','EXTENDED','LINE TOTAL'];
+      const taxCandidates=['TAX','TAX $','TAX$','TAX TOTAL','TAX TOTAL $'];
       const poCandidates=['PO NBR','PO NBR.','PO NBR#','PO','PO#','PO NUMBER','PO NBR '];
       const orderDateCandidates=['ORDER DATE','ORDERDATE','DATE'];
       const fsCandidates=['FS #','FS#','FS NUMBER','FS NO'];
@@ -226,6 +228,8 @@
       const catalogIdx=findAnyHeader(rawHeader,catalogCandidates);
       const unitIdx=findAnyHeader(rawHeader,unitCandidates);
       const totalIdx=findAnyHeader(rawHeader,totalCandidates);
+      const extIdx=findAnyHeader(rawHeader,extCandidates);
+      const taxIdx=findAnyHeader(rawHeader,taxCandidates);
       const poIdx=findAnyHeader(rawHeader,poCandidates); // STRICT: no fallback
       const orderDateIdx=findAnyHeader(rawHeader,orderDateCandidates);
       const fsIdx=findAnyHeader(rawHeader,fsCandidates);
@@ -234,6 +238,8 @@
       if(catalogIdx===-1) missing.push('CATALOG #');
       if(unitIdx===-1) missing.push('UNIT / QTY');
       if(totalIdx===-1) missing.push('TOTAL');
+      if(extIdx===-1) missing.push('EXT $');
+      if(taxIdx===-1) missing.push('TAX');
       if(poIdx===-1) missing.push('PO / PO NBR'); // strict requirement
       if(orderDateIdx===-1) missing.push('ORDER DATE');
       if(fsIdx===-1) missing.push('FS #');
@@ -242,7 +248,7 @@
       if(missing.length){ statusEl.innerHTML='Missing required column(s): '+missing.join(', '); return; }
 
       // Maps and ordering
-      const transportTotals=new Map(), allTotals=new Map(), masterValByGroup=new Map(), poByGroup=new Map(), groupOrder=[];
+      const transportTotals=new Map(), merchTotals=new Map(), taxTotals=new Map(), grandTotals=new Map(), masterValByGroup=new Map(), poByGroup=new Map(), groupOrder=[];
       const seen=new Set();
       let skipped=0;
 
@@ -267,7 +273,11 @@
         }
 
         const totalVal=parseNumeric(row[totalIdx]);
-        if(!isNaN(totalVal)) allTotals.set(grp,(allTotals.get(grp)||0)+totalVal);
+        const extVal=parseNumeric(row[extIdx]);
+        const taxVal=parseNumeric(row[taxIdx]);
+        if(!isNaN(extVal)) merchTotals.set(grp,(merchTotals.get(grp)||0)+extVal);
+        if(!isNaN(taxVal)) taxTotals.set(grp,(taxTotals.get(grp)||0)+taxVal);
+        if(!isNaN(totalVal)) grandTotals.set(grp,(grandTotals.get(grp)||0)+totalVal);
 
         const catalogBlank=(row[catalogIdx]==null||String(row[catalogIdx]).trim()==='');
         const unitVal=row[unitIdx];
@@ -279,21 +289,23 @@
       let summary;
       if(groupByMaster){
         // Grouping key is MASTER INV NBR
-        summary=[['MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','GRAND_TOTAL']];
+        summary=[['MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','TAX_SUBTOTAL','GRAND_TOTAL']];
         for(const grp of groupOrder){
           const transport=+(transportTotals.get(grp)||0).toFixed(2);
-          const all=+(allTotals.get(grp)||0).toFixed(2);
-          const merch=+(all-transport).toFixed(2);
-          summary.push([grp, poByGroup.get(grp)||'', transport, merch, +(transport+merch).toFixed(2)]);
+          const merch=+(merchTotals.get(grp)||0).toFixed(2);
+          const tax=+(taxTotals.get(grp)||0).toFixed(2);
+          const grand=+(grandTotals.get(grp)||0).toFixed(2);
+          summary.push([grp, poByGroup.get(grp)||'', transport, merch, tax, grand]);
         }
       }else{
         // Grouping key is COST CENTER (preserve original layout)
-        summary=[['COST CENTER','MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','GRAND_TOTAL']];
+        summary=[['COST CENTER','MASTER INV NBR','PO NBR','TRANSPORTATION_SUBTOTAL','MERCHANDISE_SUBTOTAL','TAX_SUBTOTAL','GRAND_TOTAL']];
         for(const grp of groupOrder){
           const transport=+(transportTotals.get(grp)||0).toFixed(2);
-          const all=+(allTotals.get(grp)||0).toFixed(2);
-          const merch=+(all-transport).toFixed(2);
-          summary.push([grp, masterValByGroup.get(grp)||'', poByGroup.get(grp)||'', transport, merch, +(transport+merch).toFixed(2)]);
+          const merch=+(merchTotals.get(grp)||0).toFixed(2);
+          const tax=+(taxTotals.get(grp)||0).toFixed(2);
+          const grand=+(grandTotals.get(grp)||0).toFixed(2);
+          summary.push([grp, masterValByGroup.get(grp)||'', poByGroup.get(grp)||'', transport, merch, tax, grand]);
         }
       }
 
@@ -433,6 +445,7 @@
     { headerCandidates: ['PO NBR','PO','PO#','PO NBR.','PO NUMBER','PURCHASE ORDER','PURCHASEORDER','PO NBR '], pdfNames: ['PURCHASEORDER#','PURCHASE ORDER #','PurchaseOrder#','PURCHASE_ORDER','#PO'] },
     { headerCandidates: ['TRANSPORTATION_SUBTOTAL','TRANSPORTATION SUBTOTAL','TRANS TOTAL','TRANSTOTAL','TRANSTOTAL$','TRANS TOTAL $'], pdfNames: ['TRANSTOTAL$','TransTotal$','TRANS_TOTAL','TRANSTOTAL'] },
     { headerCandidates: ['MERCHANDISE_SUBTOTAL','MERCHANDISE SUBTOTAL','MERCH TOTAL','MERCHTOTAL','MERCH TOTAL $'], pdfNames: ['MERCHTOTAL$','MerchTotal$','MERCH_TOTAL','MERCHTOTAL'] },
+    { headerCandidates: ['TAX_SUBTOTAL','TAX SUBTOTAL','TAX TOTAL','TAXTOTAL','TAX TOTAL $'], pdfNames: ['TAXTOTAL$','TaxTotal$','TAX_TOTAL','TAXTOTAL'] },
     { headerCandidates: ['GRAND_TOTAL','GRAND TOTAL','GRANDTOTAL','GRAND TOTAL $'], pdfNames: ['GRANDTOTAL$','GrandTotal$','GRANDTOTAL','GRAND TOTAL'] }
   ];
 
@@ -476,7 +489,8 @@
         const poVal     = row[ indices[mapping[1].headerCandidates[0]] ] || '';
         const transVal  = row[ indices[mapping[2].headerCandidates[0]] ] || 0;
         const merchVal  = row[ indices[mapping[3].headerCandidates[0]] ] || 0;
-        const grandVal  = row[ indices[mapping[4].headerCandidates[0]] ] || 0;
+        const taxVal    = row[ indices[mapping[4].headerCandidates[0]] ] || 0;
+        const grandVal  = row[ indices[mapping[5].headerCandidates[0]] ] || 0;
 
         // load pdf and fill
         const pdfDoc = await PDFLib.PDFDocument.load(pdfBytes);
@@ -504,9 +518,14 @@
         if(!fMerch) mappingProblems.push(`PDF field for MERCHTOTAL$ not found (tried: ${mapping[3].pdfNames.join(', ')})`);
         setFieldText(fMerch, fmtNumber(merchVal));
 
-        // 5) GRAND_TOTAL -> GRANDTOTAL$
-        const fGrand = mapping[4].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
-        if(!fGrand) mappingProblems.push(`PDF field for GRANDTOTAL$ not found (tried: ${mapping[4].pdfNames.join(', ')})`);
+        // 5) TAX_SUBTOTAL -> TAXTOTAL$
+        const fTax = mapping[4].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fTax) mappingProblems.push(`PDF field for TAXTOTAL$ not found (tried: ${mapping[4].pdfNames.join(', ')})`);
+        setFieldText(fTax, fmtNumber(taxVal));
+
+        // 6) GRAND_TOTAL -> GRANDTOTAL$
+        const fGrand = mapping[5].pdfNames.map(n => findPdfField(fields,n)).find(Boolean);
+        if(!fGrand) mappingProblems.push(`PDF field for GRANDTOTAL$ not found (tried: ${mapping[5].pdfNames.join(', ')})`);
         setFieldText(fGrand, fmtNumber(grandVal));
 
         // Optional: set start/invoice date fields if provided
