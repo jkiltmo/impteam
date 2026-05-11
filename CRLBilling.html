@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Billing Tool - One Step</title>
+  <title>CRL Billing</title>
   <style>
     body {
       font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
@@ -83,17 +83,17 @@
   })();
   </script>
   <section>
-    <h1>CRL Billing - One Step</h1>
-    <p class="small">Upload the Excel file and coverpage PDF, enter the date range, then click Generate. This produces the same summary workbook, filled coverpages, grouped PDFs, and merged PDFs without the multi-step handoff.</p>
+    <h1>CRL Billing</h1>
+    <p class="small">Upload the consolidated billing report and the cover page PDF template, then enter the date range.</p>
 
-    <label>Excel (.xlsx / .xls): <input id="xlsx_file" type="file" accept=".xlsx,.xls" /></label>
-    <label>Coverpage PDF (.pdf): <input id="pdf_file" type="file" accept=".pdf" /></label>
+    <label>Consolidated Billing Report (excel): <input id="xlsx_file" type="file" accept=".xlsx,.xls" /></label>
+    <label>Cover Page Template (.pdf): <input id="pdf_file" type="file" accept=".pdf" /></label>
     <div class="row">
       <label>Start Date: <input id="start_date" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" /></label>
       <label>Invoice Date: <input id="invoice_date" type="text" placeholder="YYYY-MM-DD or mm/dd/yyyy" /></label>
     </div>
 
-    <div class="row"><button id="run_btn">Generate Billing Package</button></div>
+    <div class="row"><button id="run_btn">Create Billing Reports</button></div>
     <div id="status" class="status"></div>
   </section>
 
