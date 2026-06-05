@@ -340,6 +340,7 @@
         const catalogCandidates = ['CATALOG #', 'CATALOG', 'CATALOGNO', 'CATALOG#'];
         const unitCandidates = ['UNIT', 'UNIT OF MEASURE', 'UOM', 'QTY'];
         const costCenterCandidates = ['COST CENTER', 'COST_CENTER', 'COSTCENTER', 'COST CENTRE'];
+        const masterCandidates = ['MASTER INV NBR', 'MASTER INV NUMBER', 'MASTER INV', 'MASTER INVOICE NBR', 'MASTER INVOICE NUMBER', 'MASTER INVOICE', 'MASTERINVNBR', 'MASTERINVOICE'];
         const totalCandidates = ['TOTAL', 'EXT $', 'EXT', 'EXTENDED', 'LINE TOTAL', 'UNIT $', 'UNIT$'];
         const poCandidates = ['PO NBR', 'PO NBR.', 'PO NBR#', 'PO', 'PO#', 'PO NUMBER', 'PO NBR '];
         const orderDateCandidates = ['ORDER DATE', 'ORDERDATE', 'DATE'];
@@ -348,10 +349,17 @@
         const catalogIdx = findAnyHeader(rawHeader, catalogCandidates);
         const unitIdx = findAnyHeader(rawHeader, unitCandidates);
         const costCenterIdx = findAnyHeader(rawHeader, costCenterCandidates);
+        let masterIdx = findAnyHeader(rawHeader, masterCandidates);
         const totalIdx = findAnyHeader(rawHeader, totalCandidates);
         let poIdx = findAnyHeader(rawHeader, poCandidates);
         const orderDateIdx = findAnyHeader(rawHeader, orderDateCandidates);
         const fsIdx = findAnyHeader(rawHeader, fsCandidates);
+
+        let usedMasterFallback = false;
+        if (masterIdx === -1 && rawHeader.length >= 1) {
+          masterIdx = 0;
+          usedMasterFallback = true;
+        }
 
         let usedPoFallback = false;
         if (poIdx === -1 && rawHeader.length >= 3) {
@@ -362,7 +370,7 @@
         const missing = [];
         if (catalogIdx === -1) missing.push('CATALOG #');
         if (unitIdx === -1) missing.push('UNIT / QTY');
-        if (costCenterIdx === -1) missing.push('COST CENTER');
+        if (masterIdx === -1 && !usedMasterFallback) missing.push('MASTER INV NBR');
         if (totalIdx === -1) missing.push('TOTAL');
         if (!usedPoFallback && poIdx === -1) missing.push('PO / PO NBR');
         if (orderDateIdx === -1) missing.push('ORDER DATE');
@@ -373,9 +381,9 @@
 
         const transportTotals = new Map();
         const allTotals = new Map();
-        const masterByCC = new Map();
-        const poByCC = new Map();
-        const ccOrder = [];
+        const costCenterByMaster = new Map();
+        const poByMaster = new Map();
+        const masterOrder = [];
         const seen = new Set();
         let skipped = 0;
 
@@ -391,35 +399,35 @@
             continue;
           }
 
-          let cc = row[costCenterIdx];
-          cc = (cc == null || String(cc).trim() === '') ? 'UNSPECIFIED' : String(cc).trim();
+          let master = row[masterIdx];
+          master = (master == null || String(master).trim() === '') ? 'UNSPECIFIED' : String(master).trim();
 
-          if (!seen.has(cc)) {
-            seen.add(cc);
-            ccOrder.push(cc);
-            const colA = row[0];
-            masterByCC.set(cc, (colA != null && String(colA).trim() !== '') ? String(colA).trim() : '');
+          if (!seen.has(master)) {
+            seen.add(master);
+            masterOrder.push(master);
+            const ccVal = row[costCenterIdx];
+            costCenterByMaster.set(master, (ccVal != null && String(ccVal).trim() !== '') ? String(ccVal).trim() : '');
             const colC = row[2];
-            poByCC.set(cc, (colC != null && String(colC).trim() !== '') ? String(colC).trim() : '');
+            poByMaster.set(master, (colC != null && String(colC).trim() !== '') ? String(colC).trim() : '');
           }
 
           const totalVal = parseNumeric(row[totalIdx]);
-          if (!isNaN(totalVal)) allTotals.set(cc, (allTotals.get(cc) || 0) + totalVal);
+          if (!isNaN(totalVal)) allTotals.set(master, (allTotals.get(master) || 0) + totalVal);
 
           const catalogBlank = (row[catalogIdx] == null || String(row[catalogIdx]).trim() === '');
           const unitVal = row[unitIdx];
           const unitEA = (unitVal != null && String(unitVal).trim().toUpperCase() === 'EA');
           if (catalogBlank && unitEA && !isNaN(totalVal)) {
-            transportTotals.set(cc, (transportTotals.get(cc) || 0) + totalVal);
+            transportTotals.set(master, (transportTotals.get(master) || 0) + totalVal);
           }
         }
 
         const summary = [['COST CENTER', 'MASTER INV NBR', 'PO NBR', 'TRANSPORTATION_SUBTOTAL', 'MERCHANDISE_SUBTOTAL', 'GRAND_TOTAL']];
-        for (const cc of ccOrder) {
-          const transport = +(transportTotals.get(cc) || 0).toFixed(2);
-          const all = +(allTotals.get(cc) || 0).toFixed(2);
+        for (const master of masterOrder) {
+          const transport = +(transportTotals.get(master) || 0).toFixed(2);
+          const all = +(allTotals.get(master) || 0).toFixed(2);
           const merch = +(all - transport).toFixed(2);
-          summary.push([cc, masterByCC.get(cc) || '', poByCC.get(cc) || '', transport, merch, +(transport + merch).toFixed(2)]);
+          summary.push([costCenterByMaster.get(master) || '', master, poByMaster.get(master) || '', transport, merch, +(transport + merch).toFixed(2)]);
         }
 
         return { summary, skipped };
