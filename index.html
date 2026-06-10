@@ -1,200 +1,283 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Implementation Team Tools</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Implementation Team Tools</title>
 
-<style>
-body { 
-  font-family: Arial, Helvetica, sans-serif; 
-  margin: 0; 
-  padding: 0; 
-  background: #1789e0; 
-  color: #222; 
-}
+  <!-- Icon font -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css">
 
-header { 
-  background: #1789e0; 
-  color: white; 
-  padding: 24px 16px;
-  text-align: center; 
-}
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #1789e0;
+      color: #222;
+    }
 
-main { 
-  max-width: 900px; 
-  margin: 36px auto; 
-  padding: 0 16px; 
-}
+    header {
+      color: #ffffff;
+      padding: 28px 16px 8px;
+      text-align: center;
+    }
+    .header-inner { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
+    .header-inner h1 { margin: 0; font-size: 28px; }
+    .header-inner p { margin: 6px 0 0; opacity: 0.9; font-size: 15px; }
 
-.cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-}
+    main {
+      max-width: 1000px;
+      margin: 24px auto 36px;
+      padding: 0 16px;
+    }
 
-/* Make tile the button */
-.card-link {
-  text-decoration: none;
-  color: inherit;
-}
+    .group { margin-bottom: 28px; }
+    .group h2 {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 12px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.25);
+    }
 
-.card {
-  background: white;
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid #e6e8ec;
-  transition: all .15s ease;
-  cursor: pointer;
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+    }
 
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
+    /* Make the whole tile act as the button */
+    .card-link {
+      text-decoration: none;
+      color: inherit;
+    }
 
-  min-height: 90px;        /* smaller */
-}
+    .card {
+      position: relative;
+      background: #ffffff;
+      border: 1px solid #e6e8ec;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-height: 64px;
+      box-sizing: border-box;
+      transition: all .15s ease;
+      cursor: pointer;
+    }
 
-.card h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-}
+    .card:hover {
+      transform: translateY(-3px);
+      border-color: #0b74de;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    }
 
-.card:hover {
-  transform: translateY(-3px);
-  border-color: #0b74de;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-}
-footer { 
-  text-align:center; 
-  color:#666; 
-  padding:24px 0; 
-  margin-top:36px; 
-}
-</style>
+    .card .icon {
+      font-size: 26px;
+      color: #1789e0;
+      flex: none;
+      width: 32px;
+      text-align: center;
+    }
 
+    .card h3 { margin: 0; font-size: 16px; font-weight: 600; color: #1f2937; }
+    .card p { margin: 2px 0 0; font-size: 13px; color: #6b7280; }
+
+    .card .ext {
+      position: absolute;
+      top: 10px;
+      right: 12px;
+      font-size: 15px;
+      color: #9aa5b1;
+    }
+
+    @media (max-width: 560px) {
+      .cards { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
-<header>
-  <div style="max-width:1100px;margin:0 auto;padding:0 16px;">
-    <h1 style="margin:0;">Implementation Team Tools</h1>
-    <p style="margin:4px 0 0; opacity:0.9;"></p>
-  </div>
-</header>
+  <header>
+    <div class="header-inner">
+      <h1>Implementation Team Tools</h1>
+    </div>
+  </header>
 
-<main>
-  <section class="cards">
+  <main>
 
-    <a class="card-link" href="child.html">
-      <div class="card">
-        <h3>Parent Child Tool</h3>
-        <p></p>
+    <section class="group">
+      <h2>Tools</h2>
+      <div class="cards">
+
+        <a class="card-link" href="child.html">
+          <div class="card">
+            <i class="ti ti-sitemap icon" aria-hidden="true"></i>
+            <div>
+              <h3>Parent Child Tool</h3>
+              <p>Look up child parts</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="sign.html">
+          <div class="card">
+            <i class="ti ti-clipboard-text icon" aria-hidden="true"></i>
+            <div>
+              <h3>Sign Tool</h3>
+              <p>Generate stockroom signage</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="bin.html">
+          <div class="card">
+            <i class="ti ti-box icon" aria-hidden="true"></i>
+            <div>
+              <h3>BIN Tool</h3>
+              <p>Create BIN label sheets</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="instructions.html">
+          <div class="card">
+            <i class="ti ti-file-description icon" aria-hidden="true"></i>
+            <div>
+              <h3>Site Document Tool</h3>
+              <p>Build the site instructions doc</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="signin.html">
+          <div class="card">
+            <i class="ti ti-qrcode icon" aria-hidden="true"></i>
+            <div>
+              <h3>ULSIM Sign In QR</h3>
+              <p>Create app sign-in QR codes</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="RGNBilling.html">
+          <div class="card">
+            <i class="ti ti-file-invoice icon" aria-hidden="true"></i>
+            <div>
+              <h3>RGN Billing</h3>
+              <p>Create RGN billing reports</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="CRLBilling.html">
+          <div class="card">
+            <i class="ti ti-file-invoice icon" aria-hidden="true"></i>
+            <div>
+              <h3>CRL Billing</h3>
+              <p>Create CRL billing reports</p>
+            </div>
+          </div>
+        </a>
+
       </div>
-    </a>
+    </section>
 
-    <a class="card-link" href="sign.html">
-      <div class="card">
-        <h3>Sign Tool</h3>
-        <p></p>
-      </div>
-    </a>
+    <section class="group">
+      <h2>Forms &amp; calendars</h2>
+      <div class="cards">
 
-    <a class="card-link" href="bin.html">
-      <div class="card">
-        <h3>BIN Tool</h3>
-        <p></p>
-      </div>
-    </a>
+        <a class="card-link" href="https://app.smartsheet.com/sheets/XX4cCJGq7VRwXqxHPVQCrqpmg9qQr573g9C3cJR1" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-calendar icon" aria-hidden="true"></i>
+            <div>
+              <h3>Implementation Calendar</h3>
+              <p>Team project schedule</p>
+            </div>
+          </div>
+        </a>
 
-    <a class="card-link" href="instructions.html">
-      <div class="card">
-        <h3>Site Document Tool</h3>
-        <p></p>
-      </div>
-    </a>
+        <a class="card-link" href="https://app.smartsheet.com/b/form/d07a0d8b033a46139b595fca98010435" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-clock icon" aria-hidden="true"></i>
+            <div>
+              <h3>Project Timesheet</h3>
+              <p>Log your project hours</p>
+            </div>
+          </div>
+        </a>
 
-    <a class="card-link" href="signin.html">
-      <div class="card">
-        <h3>ULSIM Sign In QR</h3>
-        <p></p>
       </div>
-    </a>
+    </section>
 
-    <a class="card-link" href="https://app.smartsheet.com/sheets/XX4cCJGq7VRwXqxHPVQCrqpmg9qQr573g9C3cJR1" target="_blank">
-      <div class="card">
-        <h3>Implementation Calendar</h3>
-        <p></p>
-      </div>
-    </a>
+    <section class="group">
+      <h2>Resources &amp; links</h2>
+      <div class="cards">
 
-    <a class="card-link" href="https://app.smartsheet.com/b/form/d07a0d8b033a46139b595fca98010435" target="_blank">
-      <div class="card">
-        <h3>Project Timesheet</h3>
-        <p></p>
-      </div>
-    </a>
+        <a class="card-link" href="https://thermofisher.sharepoint.com/:f:/r/sites/collaboration2/ULS-Implementation/Documents/04.%20Customer%20Project%20Files?csf=1&web=1&e=ruADo2" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-folder icon" aria-hidden="true"></i>
+            <div>
+              <h3>Customer Project Files</h3>
+              <p>Implementation SharePoint folder</p>
+            </div>
+          </div>
+        </a>
 
-    <a class="card-link" href="https://thermofisher.sharepoint.com/:f:/r/sites/collaboration2/ULS-Implementation/Documents/04.%20Customer%20Project%20Files?csf=1&web=1&e=ruADo2" target="_blank">
-      <div class="card">
-        <h3>Customer Project Files SharePoint</h3>
-        <p></p>
-      </div>
-    </a>
-    
-    <a class="card-link" href="https://us2.concursolutions.com/home" target="_blank">
-      <div class="card">
-        <h3>Concur</h3>
-        <p></p>
-      </div>
-    </a>
-    
-    <a class="card-link" href="https://thermofisher.sharepoint.com/:f:/r/sites/collaboration2/ULS-Implementation/Documents/02.%20Templates%20and%20Standard%20Content?csf=1&web=1&e=5RfVts" target="_blank">
-      <div class="card">
-        <h3>Templates and Standard Content SharePoint</h3>
-        <p></p>
-      </div>
-    </a>
+        <a class="card-link" href="https://thermofisher.sharepoint.com/:f:/r/sites/collaboration2/ULS-Implementation/Documents/02.%20Templates%20and%20Standard%20Content?csf=1&web=1&e=5RfVts" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-folders icon" aria-hidden="true"></i>
+            <div>
+              <h3>Templates &amp; Standard Content</h3>
+              <p>Implementation SharePoint folder</p>
+            </div>
+          </div>
+        </a>
 
-    <a class="card-link" href="https://thermofisher.sharepoint.com/sites/EISCOECommunicationSite/SitePages/TrainingHome.aspx" target="_blank">
-      <div class="card">
-        <h3>Document Depot</h3>
-        <p></p>
+        <a class="card-link" href="https://thermofisher.sharepoint.com/sites/EISCOECommunicationSite/SitePages/TrainingHome.aspx" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-books icon" aria-hidden="true"></i>
+            <div>
+              <h3>Document Depot</h3>
+              <p>Training &amp; documentation home</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="https://us2.concursolutions.com/home" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-credit-card icon" aria-hidden="true"></i>
+            <div>
+              <h3>Concur</h3>
+              <p>Expenses &amp; travel</p>
+            </div>
+          </div>
+        </a>
+
+        <a class="card-link" href="https://www.qrcode-tiger.com/" target="_blank" rel="noopener">
+          <div class="card">
+            <i class="ti ti-external-link ext" aria-hidden="true"></i>
+            <i class="ti ti-scan icon" aria-hidden="true"></i>
+            <div>
+              <h3>QR Tiger</h3>
+              <p>QR code generator</p>
+            </div>
+          </div>
+        </a>
+
       </div>
-    </a>
+    </section>
 
-    <a class="card-link" href="https://www.qrcode-tiger.com/" target="_blank">
-      <div class="card">
-        <h3>QR Tiger</h3>
-        <p></p>
-      </div>
-    </a>
-
-    <a class="card-link" href="RGNBilling.html">
-      <div class="card">
-        <h3>RGN Billing</h3>
-        <p></p>
-      </div>
-    </a>
-
-    <a class="card-link" href="CRLBilling.html">
-      <div class="card">
-        <h3>CRL Billing</h3>
-        <p></p>
-      </div>
-    </a>
-
-  </section>
-</main>
-
-<footer>
-  <small></small>
-  <br><br>
-  <a  
-  </a>
-</footer>
+  </main>
 
 </body>
 </html>
