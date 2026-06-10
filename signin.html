@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign-In QR Tool</title>
+
+  <!-- QR code library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    /* --- Global page / typography --- */
+    body {
+      font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1789e0;
+      color: #ffffff;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* --- Panels / Sections --- */
+    .section {
+      background: rgba(255,255,255,0.03);
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+
+    /* --- Headings --- */
+    h1, h2 {
+      color: #ffffff;
+      margin: 0 0 8px 0;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      font-weight: 600;
+      color: #f7fbff;
+    }
+
+    /* --- Inputs --- */
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #ffffff;
+      color: #111;
+      box-sizing: border-box;
+      font-size: 14px;
+    }
+
+    /* --- Status text --- */
+    #status {
+      margin: 10px 0;
+      padding: 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.09);
+      color: #ffffff;
+      min-height: 20px;
+    }
+    .success { background: rgba(255,255,255,0.06); color: #eaf6ff; }
+    .error   { background: #f8d7da; color: #721c24; }
+
+    /* --- Buttons --- */
+    .button {
+      display: inline-block;
+      background: #f3f6fb;
+      color: #111;
+      padding: 10px 20px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      text-decoration: none;
+      text-align: center;
+      margin: 5px 0;
+    }
+    .button:hover { background: #e7ecf5; }
+    .button:disabled,
+    .button[disabled] { opacity: 0.6; cursor: not-allowed; }
+
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .hint { margin-top: 8px; font-size: 0.9rem; color: #eaf6ff; line-height: 1.4; }
+    .encoded { font-family: Consolas, "Courier New", monospace; word-break: break-all; }
+    .encoded .tab { background: #0b72ff; color: #fff; border-radius: 4px; padding: 0 6px; margin: 0 2px; }
+
+    /* --- QR preview --- */
+    .previewBox {
+      margin-top: 12px;
+      background: #fff;
+      border-radius: 6px;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 300px;
+    }
+    .previewBox img, .previewBox canvas { display: block; }
+    .previewBox .placeholder { color: #888; font-size: 14px; }
+
+    /* --- Top banner navigation --- */
+    .top-banner {
+      position: sticky;
+      top: 0;
+      left: 0;
+      width: 100%;
+      z-index: 9999;
+      background: var(--card-bg, #ffffff);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      padding: 8px 0;
+    }
+    .top-nav {
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      gap: 18px;
+      padding: 6px 16px;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    .top-nav .nav-link {
+      padding: 8px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      color: var(--text-color, #111);
+      opacity: 0.9;
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .top-nav .nav-link.active {
+      background: var(--accent, #0b72ff);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(11,114,255,0.18);
+      transform: translateY(-1px);
+    }
+    .top-nav .nav-link:hover { opacity: 1; transform: translateY(-1px); }
+
+    @media (max-width:900px) {
+      .top-nav { flex-wrap: wrap; gap: 10px; padding: 8px; }
+      .top-nav .nav-link { padding: 8px 12px; }
+    }
+    @media (max-width:700px) {
+      .top-nav { flex-wrap: wrap; justify-content: center; }
+    }
+    @media (max-width: 760px) {
+      .section { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="top-banner" role="banner">
+    <nav class="top-nav" role="navigation" aria-label="Main">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="child.html">Child</a>
+      <a class="nav-link" href="sign.html">Sign</a>
+      <a class="nav-link" href="bin.html">BIN</a>
+      <a class="nav-link" href="instructions.html">Site Document</a>
+      <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
+      <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
+      <a class="nav-link" href="signin.html">Sign-In QR</a>
+    </nav>
+  </header>
+
+  <script>
+    // Mark the active nav link based on the current filename (index counts as home)
+    (function () {
+      try {
+        const links = document.querySelectorAll('.top-banner .nav-link');
+        const path = location.pathname.split('/').pop() || 'index.html';
+        links.forEach(function (a) {
+          if (a.getAttribute('href') === path) {
+            a.classList.add('active');
+            a.setAttribute('aria-current', 'page');
+          }
+        });
+      } catch (e) { console.warn(e); }
+    })();
+  </script>
+
+  <div class="section">
+    <h1>Sign-In QR Tool</h1>
+    <p class="hint">
+      Enter a username and password. This will create a QR Code that can be scanned to sign into the ULSIM app.
+    </p>
+
+    <label for="usernameInput">Username</label>
+    <input id="usernameInput" type="text" placeholder="Enter username" autocomplete="off" />
+
+    <label for="passwordInput">Password</label>
+    <input id="passwordInput" type="text" placeholder="Enter password" autocomplete="off" />
+
+    <div class="row">
+      <button id="generateBtn" class="button">Generate QR Code</button>
+      <button id="downloadBtn" class="button" disabled>Download PNG</button>
+    </div>
+
+    <div id="status"></div>
+  </div>
+
+  <div class="section">
+    <h2>QR Code</h2>
+    <div class="hint encoded" id="encodedPreview">Nothing generated yet.</div>
+    <div class="previewBox" id="qrcode">
+      <span class="placeholder">Your QR code will appear here.</span>
+    </div>
+  </div>
+
+  <script>
+    const usernameInput = document.getElementById('usernameInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const generateBtn = document.getElementById('generateBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const statusEl = document.getElementById('status');
+    const encodedPreview = document.getElementById('encodedPreview');
+    const qrContainer = document.getElementById('qrcode');
+
+    const TAB = '\t';
+    let lastUsername = '';
+
+    function setStatus(msg, isError) {
+      statusEl.textContent = msg || '';
+      statusEl.className = isError ? 'error' : 'success';
+    }
+
+    function sanitizeFilename(s) {
+      return String(s || '')
+        .replace(/[\\/\?%*:|"<>]/g, '_')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 120);
+    }
+
+    // Show the encoded text with the tab drawn as a visible chip
+    function showEncodedPreview(username, password) {
+      encodedPreview.innerHTML =
+        escapeHtml(username) +
+        '<span class="tab">Tab</span>' +
+        escapeHtml(password);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function generateQR() {
+      const username = usernameInput.value;
+      const password = passwordInput.value;
+
+      if (!username) {
+        setStatus('Username is required.', true);
+        return;
+      }
+      if (!password) {
+        setStatus('Password is required.', true);
+        return;
+      }
+
+      const text = username + TAB + password;
+
+      // Reset the preview box and render a fresh QR code
+      qrContainer.innerHTML = '';
+      new QRCode(qrContainer, {
+        text: text,
+        width: 280,
+        height: 280,
+        correctLevel: QRCode.CorrectLevel.M
+      });
+
+      lastUsername = username;
+      showEncodedPreview(username, password);
+      downloadBtn.disabled = false;
+      setStatus('QR code generated. Scan it into the Username field to sign in.');
+    }
+
+    function downloadQR() {
+      const canvas = qrContainer.querySelector('canvas');
+      const img = qrContainer.querySelector('img');
+      const dataUrl = canvas ? canvas.toDataURL('image/png') : (img ? img.src : null);
+      if (!dataUrl) {
+        setStatus('Generate a QR code first.', true);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = (sanitizeFilename(lastUsername) || 'sign-in') + ' sign-in QR.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    generateBtn.addEventListener('click', generateQR);
+    downloadBtn.addEventListener('click', downloadQR);
+
+    // Allow Enter in either field to generate
+    [usernameInput, passwordInput].forEach(function (el) {
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); generateQR(); }
+      });
+    });
+  </script>
+</body>
+</html>
