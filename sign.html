@@ -5,135 +5,25 @@
 <meta charset="utf-8" />
 <title>Sign Tool</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<style>
-  /* Page/layout */
-  body {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  font-family: Arial, system-ui, -apple-system, "Segoe UI", Roboto;
-  background: #1789e0;
-  color: #ffffff;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-  .wrap {
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 12px;
-    background: rgba(255,255,255,0.03);
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-  }
-
-  h1 { margin:0 0 8px 0; font-size:1.25rem; color: #fff; }
-  label { display:block; margin-top:12px; font-weight:600; color: #f7fbff; }
-  input[type="text"], input[type="file"], textarea, select {
-    width:100%;
-    padding:8px;
-    margin-top:6px;
-    box-sizing:border-box;
-    font-size:14px;
-    border-radius:6px;
-    border:1px solid rgba(0,0,0,0.08);
-    background: #ffffff;
-    color: #111;
-  }
-  textarea { min-height:120px; font-family:inherit; white-space:pre-wrap; }
-  button {
-    margin-top:12px;
-    padding:10px 14px;
-    font-size:14px;
-    cursor:pointer;
-    border-radius:6px;
-    border:1px solid rgba(0,0,0,0.12);
-    background:#f3f6fb;
-    color:#111;
-  }
-  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
-
-  .small { font-size:0.9rem; color:#eaf6ff; margin-top:8px; }
-  .warn { color:#ffd2d2; }
-
-  /* progress bar */
-  .progressWrap { margin-top:16px; background: rgba(255,255,255,0.06); border-radius:8px; padding:10px; }
-  .progressBar { width:100%; height:16px; background: rgba(0,0,0,0.08); border-radius:8px; overflow:hidden; position:relative; }
-  .progressFill { height:100%; width:0%; background: linear-gradient(90deg,#00ffb3,#00aaff); border-radius:8px; transition: width 300ms ease; }
-  .progressLabel { margin-top:8px; font-size:13px; color:#eaf6ff; display:block; }
-
-  /* Preview box */
-  .previewBox {
-    margin-top: 8px;
-    background: #fff;
-    border-radius: 6px;
-    padding: 8px;
-    height: 420px;
-    overflow: hidden;
-  }
-  .previewBox iframe { width:100%; height:100%; border:none; }
-
-  /* responsive */
-  @media (max-width:560px){ .row{ flex-direction:column; align-items:stretch } }
-</style>
 
 <!-- Libraries -->
-<script src="https://unpkg.com/pizzip@3.1.6/dist/pizzip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pizzip@3.1.6/dist/pizzip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-
-<style>
-/* top-banner styles updated to center items and enforce consistent width */
-.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:10px 0}
-.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center;justify-content:center;box-sizing:border-box}
-.top-nav .nav-link{padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;color:var(--text-color,#111);opacity:0.95;transition:transform .12s ease,box-shadow .12s ease}
-.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 6px 20px rgba(11,114,255,0.18);transform:translateY(-1px)}
-.top-nav .nav-link:hover{opacity:1;transform:translateY(-1px)}
-/* ensure the nav inner container stays fixed width so Sign page matches Child page */
-.top-nav{width:100%;max-width:1100px}
-/* responsive: allow wrapping but keep centered */
-@media (max-width:900px){ .top-nav{flex-wrap:wrap;gap:10px;padding:8px} .top-nav .nav-link{padding:8px 12px} }
-.top-banner{position:sticky;top:0;left:0;width:100%;z-index:9999;background:var(--card-bg, #ffffff);box-shadow:0 2px 6px rgba(0,0,0,0.08);padding:8px 0}
-.top-nav{max-width:1100px;margin:0 auto;display:flex;gap:18px;padding:6px 16px;align-items:center}
-.top-nav .nav-link{padding:8px 12px;border-radius:6px;text-decoration:none;font-weight:600;color:var(--text-color,#111);opacity:0.9}
-.top-nav .nav-link.active{background:var(--accent, #0b72ff);color:#fff;box-shadow:0 4px 14px rgba(11,114,255,0.18)}
-.top-nav .nav-link:hover{opacity:1}
-@media (max-width:700px){ .top-nav{flex-wrap:wrap;justify-content:center} }
-</style>
+  <style>
+    .progressWrap { margin-top: 16px; background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; }
+    .progressBar { width: 100%; height: 16px; background: rgba(0,0,0,0.08); border-radius: 8px; overflow: hidden; position: relative; }
+    .progressFill { height: 100%; width: 0%; background: linear-gradient(90deg,#00ffb3,#00aaff); border-radius: 8px; transition: width 300ms ease; }
+    .progressLabel { margin-top: 8px; font-size: 13px; color: #eaf6ff; display: block; }
+    .previewBox { margin-top: 8px; background: #fff; border-radius: 6px; padding: 8px; height: 420px; overflow: hidden; }
+    .previewBox iframe { width: 100%; height: 100%; border: none; }
+  </style>
+  <link rel="stylesheet" href="site.css" />
+  <script src="nav.js" defer></script>
 </head>
 <body>
 
-<!-- Top banner nav inserted by assistant -->
-<header class="top-banner" role="banner">
-  <nav class="top-nav" role="navigation" aria-label="Main">
-    <a class="nav-link" href="index.html">Home</a>
-    <a class="nav-link" href="child.html">Child</a>
-    <a class="nav-link" href="sign.html">Sign</a>
-    <a class="nav-link" href="bin.html">BIN</a>
-    <a class="nav-link" href="aisle.html">Aisle</a>
-    <a class="nav-link" href="instructions.html">Site Document</a>
-    <a class="nav-link" href="signin.html">Sign-In QR</a>
-    <a class="nav-link" href="company.html">Company</a>
-    <a class="nav-link" href="RGNBilling.html">RGN Billing</a>
-    <a class="nav-link" href="CRLBilling.html">CRL Billing</a>
-    <a class="nav-link" href="ABBBilling.html">ABB Billing</a>
-  </nav>
-</header>
-<script>
-// mark active link based on current filename (handles index as home)
-(function(){
-  try {
-    const links = document.querySelectorAll('.top-banner .nav-link');
-    const path = location.pathname.split('/').pop() || 'index.html';
-    links.forEach(a=>{
-      const target = a.getAttribute('href');
-      if (target === path) {
-        a.classList.add('active');
-        a.setAttribute('aria-current','page');
-      }
-    });
-  } catch(e){console.warn(e)}
-})();
-</script>
+
 <div class="wrap">
     <h1>Signage Tool</h1>
 
@@ -193,9 +83,6 @@
     <div id="status" class="small"></div>
   </div>
 
-  <!-- Hidden canvas used for analysis -->
-  <canvas id="probeCanvas" width="200" height="200" style="display:none"></canvas>
-
 <script>
 /* ---------- Template preview mapping (populated with your IDs) ---------- */
 const TEMPLATE_PREVIEWS = {
@@ -230,7 +117,6 @@ function setStatus(msg, warn){
   el.textContent = msg || '';
   el.className = warn ? 'warn' : 'small';
 }
-function log(){ console.log.apply(console, arguments); }
 
 function xmlEscape(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function sanitizeFilename(s){ return s.replace(/[\/\\?%*:|"<>]/g,'_').replace(/\s+/g,' ').trim().slice(0,120); }
@@ -350,89 +236,6 @@ function applyReplacementsToZip(piz, replacements) {
 function listFilesWithPrefix(zip, prefix){
   return Object.keys(zip.files).filter(function(p){ return p.indexOf(prefix) === 0; }).sort();
 }
-function partsToScan(zip){
-  var parts = [];
-  if (zip.file('word/document.xml')) parts.push({ part:'document', path:'word/document.xml', rels:'word/_rels/document.xml.rels' });
-
-  var headerPaths = listFilesWithPrefix(zip, 'word/header').filter(function(p){ return p.endsWith('.xml'); });
-  headerPaths.forEach(function(p){ parts.push({ part: p.replace('word/',''), path: p, rels: 'word/_rels/' + p.replace('word/','') + '.rels' }); });
-
-  var footerPaths = listFilesWithPrefix(zip, 'word/footer').filter(function(p){ return p.endsWith('.xml'); });
-  footerPaths.forEach(function(p){ parts.push({ part: p.replace('word/',''), path: p, rels: 'word/_rels/' + p.replace('word/','') + '.rels' }); });
-
-  if (zip.file('word/footnotes.xml')) parts.push({ part:'footnotes.xml', path:'word/footnotes.xml', rels:'word/_rels/footnotes.xml.rels' });
-  if (zip.file('word/endnotes.xml')) parts.push({ part:'endnotes.xml', path:'word/endnotes.xml', rels:'word/_rels/endnotes.xml.rels' });
-
-  return parts;
-}
-function extractRelIdsFromXmlPart(xmlText){
-  if(!xmlText) return [];
-  var re = /<a:blip[^>]*r:embed=["'](rId\d+)["'][^>]*>/g;
-  var out = []; var m;
-  while((m = re.exec(xmlText))) out.push(m[1]);
-  return out;
-}
-function mapRelsTextToTargets(relsText){
-  if(!relsText) return {};
-  var out = {};
-  var re = /<Relationship[^>]*Id=["'](rId\d+)["'][^>]*Target=["']([^"']+)["'][^>]*>/ig;
-  var m;
-  while((m = re.exec(relsText))) out[m[1]] = m[2];
-  return out;
-}
-function normalizeTarget(target){
-  if(!target) return null;
-  return target.replace(/^\/?word\//, '').replace(/\\/g, '/');
-}
-function findEmbeddedMediaTargetsOrdered(zip, maxTargets){
-  var parts = partsToScan(zip);
-  var foundTargets = [];
-  var seen = new Set();
-
-  for (var pIndex = 0; pIndex < parts.length; pIndex++){
-    var p = parts[pIndex];
-    if (!zip.file(p.path)) continue;
-    var xml = zip.file(p.path).asText();
-    if (!xml) continue;
-    var rIds = extractRelIdsFromXmlPart(xml);
-    if (!rIds || rIds.length === 0) continue;
-    var relsText = null;
-    if (zip.file(p.rels)) relsText = zip.file(p.rels).asText();
-    else if (zip.file('word/_rels/document.xml.rels')) relsText = zip.file('word/_rels/document.xml.rels').asText();
-
-    var relMap = mapRelsTextToTargets(relsText);
-    for (var ri = 0; ri < rIds.length; ri++){
-      var rId = rIds[ri];
-      var target = relMap[rId] || null;
-      var normalized = normalizeTarget(target);
-      if (normalized && !seen.has(normalized)){
-        foundTargets.push({ part: p.path, rId: rId, target: normalized });
-        seen.add(normalized);
-        if (foundTargets.length >= maxTargets) return foundTargets;
-      } else if (!normalized){
-        if (!seen.has(rId)){
-          foundTargets.push({ part: p.path, rId: rId, target: null });
-          seen.add(rId);
-          if (foundTargets.length >= maxTargets) return foundTargets;
-        }
-      }
-    }
-  }
-
-  // fallback to media files
-  if (foundTargets.length < maxTargets){
-    var mediaFiles = listFilesWithPrefix(zip, 'word/media/').map(function(p){ return p.replace('word/',''); });
-    for (var mi = 0; mi < mediaFiles.length && foundTargets.length < maxTargets; mi++){
-      var mf = mediaFiles[mi];
-      if (!seen.has(mf)){
-        foundTargets.push({ part: 'word/media', rId: null, target: mf });
-        seen.add(mf);
-      }
-    }
-  }
-
-  return foundTargets;
-}
 function ensurePngContentType(zip){
   var ctPath = '[Content_Types].xml';
   if(!zip.file(ctPath)) return;
@@ -533,13 +336,6 @@ async function runGenerate(){
     var tplBuf = await loadTemplateArrayBuffer();
     var png1Buf = await readAsArrayBufferPromise(qr1File);
     var png2Buf = await readAsArrayBufferPromise(qr2File);
-
-    updateProgress(18, 'Scanning template media…');
-    var scanZip = new PizZip(tplBuf);
-
-    // get fallback targets (not strictly necessary for alt-text path, kept for fallback)
-    var found = findEmbeddedMediaTargetsOrdered(scanZip, 20);
-    var mediaTargets = found.map(function(x){ return x.target; }).filter(Boolean);
 
     updateProgress(28, 'Preparing to generate signs…');
 
