@@ -52,33 +52,87 @@
 
   <script>
     let datasetData = [];
+    let gibcoData = [];
     let currentResults = [];
 
-    // Stable data link: to update the parts data, just replace childpartscsv.csv at this URL on GitHub.
-    // No need to edit this file. (Keep the same column headers: Parent, Child, Conversion, Child Description, Child SU.)
+    // Stable data links: replace either CSV on GitHub to update the data.
+    // No need to edit this file. Keep the same column headers in both files.
     const githubCSVUrl = "https://raw.githubusercontent.com/jkiltmo/impteam/refs/heads/main/childpartscsv.csv";
+    const githubGibcoCSVUrl = "https://raw.githubusercontent.com/jkiltmo/impteam/refs/heads/main/GibcoAlts.csv";
 
-    fetch(githubCSVUrl)
-      .then(response => {
+    // Read CSV fields as strings so part numbers such as 01677208 never lose
+    // their leading zeros before the comparison or export happens.
+    function parseCsvText(csvText) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < csvText.length; i++) {
+        const char = csvText[i];
+        const nextChar = csvText[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            field += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          row.push(field);
+          field = '';
+        } else if (char === '\n' && !inQuotes) {
+          row.push(field.replace(/\r$/, ''));
+          rows.push(row);
+          row = [];
+          field = '';
+        } else {
+          field += char;
+        }
+      }
+
+      if (field.length > 0 || row.length > 0) {
+        row.push(field.replace(/\r$/, ''));
+        rows.push(row);
+      }
+
+      if (rows.length === 0) return [];
+
+      const headers = rows.shift().map((header, index) =>
+        index === 0 ? header.replace(/^\uFEFF/, '').trim() : header.trim()
+      );
+
+      return rows
+        .filter(values => values.some(value => String(value).trim() !== ''))
+        .map(values => headers.reduce((record, header, index) => {
+          record[header] = values[index] === undefined ? '' : values[index];
+          return record;
+        }, {}));
+    }
+
+    function loadCsv(url) {
+      return fetch(url).then(response => {
         if (!response.ok) throw new Error("Network response was not ok");
         return response.text();
-      })
-      .then(csvText => {
-        const workbook = XLSX.read(csvText, { type: 'string' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        datasetData = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+      }).then(parseCsvText);
+    }
 
+    Promise.all([loadCsv(githubCSVUrl), loadCsv(githubGibcoCSVUrl)])
+      .then(([childRows, gibcoRows]) => {
+        datasetData = childRows;
+        gibcoData = gibcoRows;
         document.getElementById('status').className = 'success';
         document.getElementById('status').textContent =
-          `Dataset loaded successfully! ${datasetData.length} records found.`;
+          `Datasets loaded successfully! ${datasetData.length} child records and ${gibcoData.length} Gibco alternate records found.`;
         document.getElementById('exportButton').disabled = false;
         updateResults();
       })
       .catch(error => {
-        console.error("Error loading GitHub CSV:", error);
+        console.error("Error loading GitHub CSV files:", error);
         document.getElementById('status').className = 'error';
         document.getElementById('status').textContent =
-          'Error loading dataset from GitHub. Please check the file URL and formatting.';
+          'Error loading one or more datasets from GitHub. Please check the file URLs and formatting.';
       });
 
     document.getElementById('partNumberInput').addEventListener('input', updateResults);
@@ -92,7 +146,7 @@
     }
 
     function updateResults() {
-      if (datasetData.length === 0) return;
+      if (datasetData.length === 0 && gibcoData.length === 0) return;
 
       const searchParts = document.getElementById('partNumberInput').value
         .split('\n')
@@ -106,12 +160,15 @@
 
       // Build results (still include inputIndex in dedupe so repeated searches show separately)
       searchParts.forEach((searchPart, inputIndex) => {
-        const matches = datasetData.filter(row =>
+        const childMatches = datasetData.filter(row =>
+          String(row.Parent).trim() === String(searchPart).trim()
+        );
+        const gibcoMatches = gibcoData.filter(row =>
           String(row.Parent).trim() === String(searchPart).trim()
         );
 
-        if (matches.length > 0) {
-          matches.forEach(match => {
+        if (childMatches.length > 0) {
+          childMatches.forEach(match => {
             const parentKey = String(match.Parent).trim();
             const childValRaw = match.Child || '';
             const conversionRaw = match.Conversion || '';
@@ -123,7 +180,8 @@
               child: normalizeDisplay(childValRaw),
               conversion: normalizeDisplay(conversionRaw),
               childDescription: normalizeDisplay(childDescriptionRaw),
-              childUOM: normalizeDisplay(childUOMRaw)
+              childUOM: normalizeDisplay(childUOMRaw),
+              isGibco: false
             };
 
             // Keep inputIndex in dedupe key so duplicate input lines produce separate rows
@@ -134,14 +192,35 @@
               currentResults.push(result);
             }
           });
-        } else {
+        }
+
+        // Add Gibco matches after this input part while preserving input order.
+        gibcoMatches.forEach(match => {
+          const parentKey = String(match.Parent).trim();
+          const result = {
+            parent: parentKey,
+            child: normalizeDisplay(match.Child || ''),
+            conversion: normalizeDisplay(match.Conversion || ''),
+            childDescription: normalizeDisplay(match['Child Description'] || ''),
+            childUOM: normalizeDisplay(match['Child SU'] || ''),
+            isGibco: true
+          };
+          const resultKey = JSON.stringify(result) + '::' + inputIndex;
+          if (!seen.has(resultKey)) {
+            seen.add(resultKey);
+            currentResults.push(result);
+          }
+        });
+
+        if (childMatches.length === 0 && gibcoMatches.length === 0) {
           // No match -> produce a No Child result (and allow duplicates per input line)
           const noChildResult = {
             parent: searchPart,
             child: 'No Child',
             conversion: 'No Child',
             childDescription: 'No Child',
-            childUOM: 'No Child'
+            childUOM: 'No Child',
+            isGibco: false
           };
           const noChildKey = JSON.stringify(noChildResult) + '::' + inputIndex;
           if (!seen.has(noChildKey)) {
@@ -163,7 +242,11 @@
       currentResults.forEach(result => {
         const row = document.createElement('tr');
         const distinctChildCount = parentToChildSet[result.parent] ? parentToChildSet[result.parent].size : 1;
-        if (distinctChildCount > 1) row.classList.add('duplicate-highlight');
+        if (result.isGibco) {
+          row.classList.add('gibco-highlight');
+        } else if (distinctChildCount > 1) {
+          row.classList.add('duplicate-highlight');
+        }
 
         row.innerHTML = `
           <td>${result.parent}</td>
@@ -182,7 +265,12 @@
       if (currentResults.length === 0) return;
 
       const headers = ["parent", "child", "conversion", "childDescription", "childUOM"];
-      const ws = XLSX.utils.json_to_sheet(currentResults, { header: headers });
+      const exportResults = currentResults.map(result => {
+        const copy = { ...result };
+        delete copy.isGibco;
+        return copy;
+      });
+      const ws = XLSX.utils.json_to_sheet(exportResults, { header: headers });
 
       const range = XLSX.utils.decode_range(ws['!ref']);
 
@@ -196,12 +284,24 @@
       for (let r = 1; r <= range.e.r; r++) {
         const parentCellAddr = XLSX.utils.encode_cell({ r, c: 0 });
         const parentVal = ws[parentCellAddr] ? ws[parentCellAddr].v : undefined;
-        if (parentVal && parentToChildSetForExport[parentVal] && parentToChildSetForExport[parentVal].size > 1) {
-          for (let c = 0; c <= range.e.c; c++) {
-            const addr = XLSX.utils.encode_cell({ r, c });
-            if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+        const result = currentResults[r - 1];
+        const shouldHighlightDuplicate = parentVal && parentToChildSetForExport[parentVal] && parentToChildSetForExport[parentVal].size > 1;
+        const fillColor = result && result.isGibco
+          ? "DDEBF7"
+          : shouldHighlightDuplicate
+            ? "FFF3CD"
+            : null;
+
+        for (let c = 0; c <= range.e.c; c++) {
+          const addr = XLSX.utils.encode_cell({ r, c });
+          if (!ws[addr]) ws[addr] = { t: 's', v: '' };
+          // Force every exported result cell to text so leading zeros survive Excel.
+          ws[addr].t = 's';
+          ws[addr].v = String(ws[addr].v ?? '');
+          ws[addr].z = '@';
+          if (fillColor) {
             ws[addr].s = {
-              fill: { patternType: "solid", fgColor: { rgb: "FFF3CD" } }
+              fill: { patternType: "solid", fgColor: { rgb: fillColor } }
             };
           }
         }
